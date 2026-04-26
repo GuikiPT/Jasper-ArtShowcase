@@ -54,6 +54,12 @@ export function resolveThemeOption(themeValue: string) {
   return THEME_OPTIONS.find((theme) => theme.value === themeValue) ?? null;
 }
 
+export interface ReviewActionMetadata {
+  action: 'approve' | 'deny';
+  artistId: string;
+  themeValue: string;
+}
+
 export function createReviewActionCustomId(action: 'approve' | 'deny', artistId: string, themeValue: string) {
   return `${REVIEW_ACTION_CUSTOM_ID_PREFIX}:${action}:${artistId}:${themeValue}`;
 }
@@ -62,7 +68,7 @@ export function createReviewDenialModalCustomId(artistId: string, themeValue: st
   return `${REVIEW_DENIAL_MODAL_CUSTOM_ID_PREFIX}:${artistId}:${themeValue}`;
 }
 
-export function parseReviewActionCustomId(customId: string) {
+export function parseReviewActionCustomId(customId: string): ReviewActionMetadata | null {
   const [prefix, scope, action, artistId, ...themeParts] = customId.split(':');
 
   if (`${prefix}:${scope}` !== REVIEW_ACTION_CUSTOM_ID_PREFIX) return null;
@@ -72,6 +78,37 @@ export function parseReviewActionCustomId(customId: string) {
   if (!artistId || !themeValue) return null;
 
   return { action, artistId, themeValue };
+}
+
+export function extractReviewActionMetadataFromMessageComponents(components: readonly unknown[]): ReviewActionMetadata | null {
+  let reviewAction: ReviewActionMetadata | null = null;
+
+  const visit = (component: unknown) => {
+    if (!component || typeof component !== 'object' || reviewAction) return;
+
+    const candidate = component as {
+      components?: unknown[];
+      custom_id?: string;
+      customId?: string;
+    };
+
+    const customId = candidate.custom_id ?? candidate.customId;
+    if (typeof customId === 'string') {
+      const parsed = parseReviewActionCustomId(customId);
+      if (parsed) {
+        reviewAction = parsed;
+        return;
+      }
+    }
+
+    if (Array.isArray(candidate.components)) {
+      for (const child of candidate.components) visit(child);
+    }
+  };
+
+  for (const component of components) visit(component);
+
+  return reviewAction;
 }
 
 export function parseReviewDenialModalCustomId(customId: string) {

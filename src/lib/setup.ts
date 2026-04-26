@@ -28,5 +28,7 @@ colorette.createColors({ useColor: true });
 declare module '@skyra/env-utilities' {
 	interface Env {
 		OWNERS: ArrayString;
+		SIGHTENGINE_API_SECRET: string;
+		SIGHTENGINE_API_USER: string;
 	}
 }

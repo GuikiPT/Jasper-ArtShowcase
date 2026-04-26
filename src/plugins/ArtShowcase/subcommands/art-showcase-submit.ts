@@ -86,6 +86,8 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
 
     await interaction.showModal(modal);
 
+    let modalSubmission: Awaited<ReturnType<ModuleCommand.ChatInputCommandInteraction['awaitModalSubmit']>> | null = null;
+
     try {
       const submission = await interaction.awaitModalSubmit({
         filter: (modalInteraction) =>
@@ -93,14 +95,25 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
         time: 300_000
       });
 
+      modalSubmission = submission;
+
+      await submission.deferReply({
+        flags: MessageFlags.Ephemeral
+      });
+
       const selectedThemeValue = submission.fields.getStringSelectValues(THEME_FIELD_ID)[0];
       const selectedTheme = THEME_OPTIONS.find((theme) => theme.value === selectedThemeValue);
       const uploadedFiles = [...submission.fields.getUploadedFiles(IMAGE_FIELD_ID, true).values()];
 
       if (!selectedTheme || uploadedFiles.length === 0) {
-        await submission.reply({
-          content: 'The submission could not be processed. Please try again.',
-          flags: MessageFlags.Ephemeral
+        await submission.editReply({
+          components: buildStatusContainerComponents(
+            'Submission Failed',
+            ['The submission could not be processed. Please try again.'],
+            'denied'
+          ),
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] }
         });
         return;
       }
@@ -108,21 +121,31 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       const invalidFiles = uploadedFiles.filter((file) => !file.contentType?.startsWith('image/'));
 
       if (invalidFiles.length > 0) {
-        await submission.reply({
-          content: [
-            'Only image uploads are allowed. Please remove the non-image files and try again.',
-            ...invalidFiles.map((file) => `- ${file.name}`)
-          ].join('\n'),
-          flags: MessageFlags.Ephemeral
+        await submission.editReply({
+          components: buildStatusContainerComponents(
+            'Submission Failed',
+            [
+              'Only image uploads are allowed. Please remove the non-image files and try again.',
+              ...invalidFiles.map((file) => `- ${file.name}`)
+            ],
+            'denied'
+          ),
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] }
         });
         return;
       }
 
       const reviewLogChannel = await fetchSendableChannel(this.container.client, ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID);
       if (!reviewLogChannel) {
-        await submission.reply({
-          content: 'The Art Showcase log channel is configured incorrectly.',
-          flags: MessageFlags.Ephemeral
+        await submission.editReply({
+          components: buildStatusContainerComponents(
+            'Submission Failed',
+            ['The Art Showcase log channel is configured incorrectly.'],
+            'denied'
+          ),
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] }
         });
         return;
       }
@@ -175,14 +198,43 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
         allowedMentions: { parse: [] }
       }).catch(() => null);
 
-      await submission.reply({
+      await submission.editReply({
         components: buildUserReceiptComponents(submissionData),
-        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
+        flags: MessageFlags.IsComponentsV2
       });
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error) || !/time/i.test(error.message)) {
+        const failurePayload = {
+          components: buildStatusContainerComponents(
+            'Submission Failed',
+            ['The submission could not be fully processed. Please try again or contact staff if this keeps happening.'],
+            'denied'
+          ),
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] }
+        } as const;
+
+        if (modalSubmission?.deferred || modalSubmission?.replied) {
+          await modalSubmission.editReply({
+            components: failurePayload.components,
+            flags: MessageFlags.IsComponentsV2,
+            allowedMentions: failurePayload.allowedMentions
+          }).catch(() => null);
+        } else {
+          await interaction.followUp(failurePayload).catch(() => null);
+        }
+
+        return;
+      }
+
       await interaction.followUp({
-        content: 'The submission modal expired before it was sent. Run the command again when you are ready.',
-        flags: MessageFlags.Ephemeral
+        components: buildStatusContainerComponents(
+          'Submission Timed Out',
+          ['The submission modal expired before it was sent. Run the command again when you are ready.'],
+          'denied'
+        ),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
       });
     }
   }
