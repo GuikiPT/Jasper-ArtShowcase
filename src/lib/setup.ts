@@ -13,7 +13,7 @@ import { inspect } from 'util';
 import { srcDir } from './constants';
 
 // Set default behavior to bulk overwrite
-ApplicationCommandRegistries.setDefaultBehaviorWhenNotIdentical(RegisterBehavior.BulkOverwrite);
+ApplicationCommandRegistries.setDefaultBehaviorWhenNotIdentical(RegisterBehavior.Overwrite);
 
 // Read env var
 setup({ path: join(srcDir, '.env') });
