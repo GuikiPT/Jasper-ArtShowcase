@@ -19,6 +19,13 @@ import {
   buildUserReceiptComponents,
   type SubmissionDisplayData
 } from '../lib/submission-components';
+import {
+  getErrorMessage,
+  logArtShowcaseDebug,
+  logArtShowcaseError,
+  logArtShowcaseInfo,
+  logArtShowcaseWarn
+} from '../lib/logging';
 import { FileUploadBuilder, LabelBuilder, MessageFlags, ModalBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextDisplayBuilder, ThreadAutoArchiveDuration, type SendableChannels } from 'discord.js';
 
 @RegisterSubCommand('art-showcase', (builder) =>
@@ -32,11 +39,24 @@ import { FileUploadBuilder, LabelBuilder, MessageFlags, ModalBuilder, StringSele
 })
 export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
   public override async chatInputRun(interaction: ModuleCommand.ChatInputCommandInteraction) {
+    logArtShowcaseInfo(this.container.logger, 'submit.command.received', {
+      channelId: interaction.channelId,
+      guildId: interaction.guildId,
+      userId: interaction.user.id
+    });
+
     if (
       !ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID ||
       !ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID ||
       ART_SHOWCASE_REVIEWER_ROLE_IDS.length === 0
     ) {
+      logArtShowcaseWarn(this.container.logger, 'submit.command.not-configured', {
+        hasLogChannel: Boolean(ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID),
+        hasReviewerRoles: ART_SHOWCASE_REVIEWER_ROLE_IDS.length > 0,
+        hasSubmissionChannel: Boolean(ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID),
+        userId: interaction.user.id
+      });
+
       await interaction.reply({
         content: 'Art Showcase submission channels or reviewer roles are not configured yet.',
         flags: MessageFlags.Ephemeral
@@ -85,6 +105,10 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       );
 
     await interaction.showModal(modal);
+    logArtShowcaseDebug(this.container.logger, 'submit.modal.shown', {
+      modalCustomId,
+      userId: interaction.user.id
+    });
 
     let modalSubmission: Awaited<ReturnType<ModuleCommand.ChatInputCommandInteraction['awaitModalSubmit']>> | null = null;
 
@@ -97,6 +121,12 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
 
       modalSubmission = submission;
 
+      logArtShowcaseInfo(this.container.logger, 'submit.modal.received', {
+        channelId: submission.channelId,
+        guildId: submission.guildId,
+        userId: submission.user.id
+      });
+
       await submission.deferReply({
         flags: MessageFlags.Ephemeral
       });
@@ -105,7 +135,19 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       const selectedTheme = THEME_OPTIONS.find((theme) => theme.value === selectedThemeValue);
       const uploadedFiles = [...submission.fields.getUploadedFiles(IMAGE_FIELD_ID, true).values()];
 
+      logArtShowcaseInfo(this.container.logger, 'submit.payload.parsed', {
+        imageCount: uploadedFiles.length,
+        themeValue: selectedTheme?.value,
+        userId: submission.user.id
+      });
+
       if (!selectedTheme || uploadedFiles.length === 0) {
+        logArtShowcaseWarn(this.container.logger, 'submit.payload.invalid', {
+          imageCount: uploadedFiles.length,
+          themeValue: selectedTheme?.value,
+          userId: submission.user.id
+        });
+
         await submission.editReply({
           components: buildStatusContainerComponents(
             'Submission Failed',
@@ -121,6 +163,11 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       const invalidFiles = uploadedFiles.filter((file) => !file.contentType?.startsWith('image/'));
 
       if (invalidFiles.length > 0) {
+        logArtShowcaseWarn(this.container.logger, 'submit.payload.non-image-files', {
+          invalidFileCount: invalidFiles.length,
+          userId: submission.user.id
+        });
+
         await submission.editReply({
           components: buildStatusContainerComponents(
             'Submission Failed',
@@ -138,6 +185,11 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
 
       const reviewLogChannel = await fetchSendableChannel(this.container.client, ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID);
       if (!reviewLogChannel) {
+        logArtShowcaseError(this.container.logger, 'submit.log-channel.invalid', new Error('Review log channel is not sendable.'), {
+          channelId: ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
+          userId: submission.user.id
+        });
+
         await submission.editReply({
           components: buildStatusContainerComponents(
             'Submission Failed',
@@ -165,12 +217,25 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
         allowedMentions: { parse: [] }
       });
 
+      logArtShowcaseInfo(this.container.logger, 'submit.review-message.created', {
+        imageCount: submissionData.images.length,
+        reviewMessageId: reviewMessage.id,
+        themeValue: submissionData.themeValue,
+        userId: submission.user.id
+      });
+
       await reviewMessage.react('✅');
       await reviewMessage.react('❌');
 
       const reviewThread = await reviewMessage.startThread({
         name: buildReviewThreadName('pending', submission.user.username, selectedTheme.value),
         autoArchiveDuration: ThreadAutoArchiveDuration.OneDay
+      });
+
+      logArtShowcaseInfo(this.container.logger, 'submit.review-thread.created', {
+        reviewThreadId: reviewThread.id,
+        reviewMessageId: reviewMessage.id,
+        userId: submission.user.id
       });
 
       const reviewerMentions = ART_SHOWCASE_REVIEWER_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(' ');
@@ -181,6 +246,12 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
             parse: [],
             roles: ART_SHOWCASE_REVIEWER_ROLE_IDS
           }
+        });
+
+        logArtShowcaseDebug(this.container.logger, 'submit.review-thread.ping-sent', {
+          reviewThreadId: reviewThread.id,
+          roleCount: ART_SHOWCASE_REVIEWER_ROLE_IDS.length,
+          userId: submission.user.id
         });
       }
 
@@ -196,14 +267,35 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
         ),
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { parse: [] }
-      }).catch(() => null);
+      }).then(() => {
+        logArtShowcaseDebug(this.container.logger, 'submit.waiting-dm.sent', {
+          userId: submission.user.id
+        });
+      }).catch((error) => {
+        logArtShowcaseWarn(this.container.logger, 'submit.waiting-dm.failed', {
+          error: getErrorMessage(error),
+          userId: submission.user.id
+        });
+        return null;
+      });
 
       await submission.editReply({
         components: buildUserReceiptComponents(submissionData),
         flags: MessageFlags.IsComponentsV2
       });
+
+      logArtShowcaseInfo(this.container.logger, 'submit.completed', {
+        reviewMessageId: reviewMessage.id,
+        reviewThreadId: reviewThread.id,
+        userId: submission.user.id
+      });
     } catch (error) {
       if (!(error instanceof Error) || !/time/i.test(error.message)) {
+        logArtShowcaseError(this.container.logger, 'submit.failed', error, {
+          modalSubmissionReceived: Boolean(modalSubmission),
+          userId: interaction.user.id
+        });
+
         const failurePayload = {
           components: buildStatusContainerComponents(
             'Submission Failed',
@@ -226,6 +318,10 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
 
         return;
       }
+
+      logArtShowcaseWarn(this.container.logger, 'submit.modal.timed-out', {
+        userId: interaction.user.id
+      });
 
       await interaction.followUp({
         components: buildStatusContainerComponents(

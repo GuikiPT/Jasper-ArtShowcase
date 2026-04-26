@@ -21,6 +21,12 @@ import {
   summarizeAiGeneratedScore
 } from '../lib/sightengine';
 import {
+  getErrorMessage,
+  logArtShowcaseDebug,
+  logArtShowcaseInfo,
+  logArtShowcaseWarn
+} from '../lib/logging';
+import {
   ContainerBuilder,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
@@ -44,7 +50,16 @@ import {
 })
 export class ArtShowcaseAiCheckCommand extends ModuleCommand<ArtShowcasePlugin> {
   public override async chatInputRun(interaction: ChatInputCommandInteraction) {
+    logArtShowcaseInfo(this.container.logger, 'ai-check.command.received', {
+      channelId: interaction.channelId,
+      guildId: interaction.guildId,
+      userId: interaction.user.id
+    });
+
     if (!interaction.inCachedGuild()) {
+      logArtShowcaseWarn(this.container.logger, 'ai-check.unavailable.outside-guild', {
+        userId: interaction.user.id
+      });
       await interaction.reply({
         components: buildStatusContainerComponents(
           'Unavailable',
@@ -58,6 +73,9 @@ export class ArtShowcaseAiCheckCommand extends ModuleCommand<ArtShowcasePlugin> 
     }
 
     if (!isSightengineConfigured()) {
+      logArtShowcaseWarn(this.container.logger, 'ai-check.unavailable.not-configured', {
+        userId: interaction.user.id
+      });
       await interaction.reply({
         components: buildStatusContainerComponents(
           'Unavailable',
@@ -71,6 +89,10 @@ export class ArtShowcaseAiCheckCommand extends ModuleCommand<ArtShowcasePlugin> 
     }
 
     if (ART_SHOWCASE_REVIEWER_ROLE_IDS.length === 0 || !ART_SHOWCASE_REVIEWER_ROLE_IDS.some((roleId) => interaction.member.roles.cache.has(roleId))) {
+      logArtShowcaseWarn(this.container.logger, 'ai-check.permission-denied', {
+        userId: interaction.user.id,
+        threadId: interaction.channelId
+      });
       await interaction.reply({
         components: buildStatusContainerComponents(
           'Permission Denied',
@@ -85,6 +107,10 @@ export class ArtShowcaseAiCheckCommand extends ModuleCommand<ArtShowcasePlugin> 
 
     const thread = interaction.channel;
     if (!thread?.isThread() || thread.parentId !== ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID) {
+      logArtShowcaseWarn(this.container.logger, 'ai-check.wrong-channel', {
+        channelId: interaction.channelId,
+        userId: interaction.user.id
+      });
       await interaction.reply({
         components: buildStatusContainerComponents(
           'Wrong Channel',
@@ -98,9 +124,17 @@ export class ArtShowcaseAiCheckCommand extends ModuleCommand<ArtShowcasePlugin> 
     }
 
     await interaction.deferReply();
+    logArtShowcaseInfo(this.container.logger, 'ai-check.started', {
+      threadId: thread.id,
+      userId: interaction.user.id
+    });
 
     const reviewMessage = await fetchReviewStarterMessage(thread);
     if (!reviewMessage) {
+      logArtShowcaseWarn(this.container.logger, 'ai-check.review-message.missing', {
+        threadId: thread.id,
+        userId: interaction.user.id
+      });
       await interaction.editReply({
         components: buildStatusContainerComponents(
           'Review Missing',
@@ -115,6 +149,11 @@ export class ArtShowcaseAiCheckCommand extends ModuleCommand<ArtShowcasePlugin> 
 
     const submissionData = await getSubmissionFromReviewMessage(this.container.client, reviewMessage);
     if (!submissionData) {
+      logArtShowcaseWarn(this.container.logger, 'ai-check.submission-data.missing', {
+        reviewMessageId: reviewMessage.id,
+        threadId: thread.id,
+        userId: interaction.user.id
+      });
       await interaction.editReply({
         components: buildStatusContainerComponents(
           'Submission Missing',
@@ -134,13 +173,40 @@ export class ArtShowcaseAiCheckCommand extends ModuleCommand<ArtShowcasePlugin> 
       }))
     );
 
+    logArtShowcaseInfo(this.container.logger, 'ai-check.results.received', {
+      imageCount: submissionData.images.length,
+      threadId: thread.id,
+      userId: interaction.user.id
+    });
+
     await thread.send({
       components: buildAiDetectionOverviewComponents(submissionData, interaction.user.id),
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { parse: [] }
     });
 
+    logArtShowcaseDebug(this.container.logger, 'ai-check.overview-posted', {
+      threadId: thread.id,
+      userId: interaction.user.id
+    });
+
     for (const [index, result] of aiDetections.entries()) {
+      if (result.status === 'rejected') {
+        logArtShowcaseWarn(this.container.logger, 'ai-check.image.failed', {
+          error: getErrorMessage(result.reason),
+          imageIndex: index + 1,
+          threadId: thread.id,
+          userId: interaction.user.id
+        });
+      } else {
+        logArtShowcaseDebug(this.container.logger, 'ai-check.image.completed', {
+          imageIndex: index + 1,
+          score: Math.round(result.value.detection.aiGeneratedScore * 100),
+          threadId: thread.id,
+          userId: interaction.user.id
+        });
+      }
+
       await thread.send({
         components: buildAiDetectionResultComponents(submissionData.images[index], result, index),
         flags: MessageFlags.IsComponentsV2,
@@ -156,6 +222,12 @@ export class ArtShowcaseAiCheckCommand extends ModuleCommand<ArtShowcasePlugin> 
       ),
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { parse: [] }
+    });
+
+    logArtShowcaseInfo(this.container.logger, 'ai-check.completed', {
+      imageCount: submissionData.images.length,
+      threadId: thread.id,
+      userId: interaction.user.id
     });
   }
 }
