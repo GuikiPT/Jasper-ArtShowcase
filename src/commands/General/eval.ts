@@ -1,10 +1,22 @@
 import { ApplyOptions } from '@sapphire/decorators';
 import { Command, type Args } from '@sapphire/framework';
 import { send } from '@sapphire/plugin-editable-commands';
-import { Type } from '@sapphire/type';
 import { codeBlock, isThenable } from '@sapphire/utilities';
 import type { Message } from 'discord.js';
 import { inspect } from 'util';
+
+function getTypeName(value: unknown) {
+	if (value === null) return 'null';
+	if (value === undefined) return 'undefined';
+
+	const primitiveType = typeof value;
+	if (primitiveType !== 'object' && primitiveType !== 'function') return primitiveType;
+
+	const tag = Object.prototype.toString.call(value).slice(8, -1);
+	if (tag !== 'Object') return tag;
+
+	return value.constructor?.name ?? tag;
+}
 
 @ApplyOptions<Command.Options>({
 	aliases: ['ev'],
@@ -60,7 +72,7 @@ export class UserCommand extends Command {
 			success = false;
 		}
 
-		const type = new Type(result).toString();
+		const type = getTypeName(result);
 		if (isThenable(result)) result = await result;
 
 		if (typeof result !== 'string') {
