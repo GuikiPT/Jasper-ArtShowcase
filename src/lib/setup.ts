@@ -2,10 +2,11 @@
 process.env.NODE_ENV ??= 'development';
 
 import { ApplicationCommandRegistries, RegisterBehavior } from '@sapphire/framework';
+import '@kaname-png/plugin-subcommands-advanced/register';
+import '@kbotdev/plugin-modules/register';
 import '@sapphire/plugin-api/register';
 import '@sapphire/plugin-editable-commands/register';
 import '@sapphire/plugin-logger/register';
-import '@sapphire/plugin-subcommands/register';
 import { setup, type ArrayString } from '@skyra/env-utilities';
 import * as colorette from 'colorette';
 import { join } from 'path';
