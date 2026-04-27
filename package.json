@@ -44,5 +44,10 @@
     "watch:start": "tsc-watch --onSuccess \"node ./dist/index.js\"",
     "format": "prettier --write \"src/**/*.ts\""
   },
+  "pnpm": {
+    "overrides": {
+      "@sapphire/plugin-subcommands": "7.0.1"
+    }
+  },
   "prettier": "@sapphire/prettier-config"
 }
