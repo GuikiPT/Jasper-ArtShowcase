@@ -27,6 +27,8 @@ colorette.createColors({ useColor: true });
 
 declare module '@skyra/env-utilities' {
 	interface Env {
+		DEBUG_LOG_FLUSH_INTERVAL_MS: string | undefined;
+		DEBUG_LOG_WEBHOOK_URL: string | undefined;
 		OWNERS: ArrayString;
 		SIGHTENGINE_API_SECRET: string;
 		SIGHTENGINE_API_USER: string;

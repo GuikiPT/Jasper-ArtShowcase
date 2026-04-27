@@ -40,8 +40,11 @@
     "build": "tsc",
     "watch": "tsc -w",
     "start": "node dist/index.js",
+    "debug": "node dist/debug.js",
     "dev": "run-s build start",
+    "dev:debug": "run-s build debug",
     "watch:start": "tsc-watch --onSuccess \"node ./dist/index.js\"",
+    "watch:debug": "tsc-watch --onSuccess \"node ./dist/debug.js\"",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "pnpm": {
