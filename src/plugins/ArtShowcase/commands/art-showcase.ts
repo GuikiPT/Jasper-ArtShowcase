@@ -13,7 +13,10 @@ import type { ArtShowcasePlugin } from '../artshowcase-plugin';
 export class ArtShowcaseCommand extends ModuleSubcommand<ArtShowcasePlugin> {
   public override registerApplicationCommands(registry: ApplicationCommandRegistry) {
     registry.registerChatInputCommand((builder) => {
-      RegisterSubcommandsHooks.subcommands(this, builder);
+      RegisterSubcommandsHooks.subcommands(
+        this as Parameters<typeof RegisterSubcommandsHooks.subcommands>[0],
+        builder
+      );
 
       return builder.setName(this.name).setDescription('Art Showcase plugin commands.');
     });
