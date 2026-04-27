@@ -6,6 +6,7 @@ import {
   ART_SHOWCASE_REVIEWER_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
   ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID,
+  DESCRIPTION_FIELD_ID,
   IMAGE_FIELD_ID,
   MAX_IMAGE_UPLOADS,
   SUBMIT_MODAL_ID,
@@ -16,7 +17,9 @@ import {
   buildReviewThreadName,
   buildReviewMessageComponents,
   buildStatusContainerComponents,
+  buildSubmitterUpdateComponents,
   buildUserReceiptComponents,
+  formatDetailLine,
   type SubmissionDisplayData
 } from '../lib/submission-components';
 import {
@@ -26,7 +29,7 @@ import {
   logArtShowcaseInfo,
   logArtShowcaseWarn
 } from '../lib/logging';
-import { FileUploadBuilder, LabelBuilder, MessageFlags, ModalBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextDisplayBuilder, ThreadAutoArchiveDuration, type SendableChannels } from 'discord.js';
+import { FileUploadBuilder, LabelBuilder, MessageFlags, ModalBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextDisplayBuilder, TextInputBuilder, TextInputStyle, ThreadAutoArchiveDuration, type SendableChannels } from 'discord.js';
 
 @RegisterSubCommand('art-showcase', (builder) =>
   builder.setName('submit').setDescription('Open the art submission modal.')
@@ -87,6 +90,13 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       .setMinValues(1)
       .setMaxValues(MAX_IMAGE_UPLOADS);
 
+    const descriptionInput = new TextInputBuilder()
+      .setCustomId(DESCRIPTION_FIELD_ID)
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(1_000)
+      .setPlaceholder('Describe your art, idea, inspiration, or process.');
+
     modal
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
@@ -98,6 +108,10 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
           .setLabel('Theme')
           .setDescription('Choose one of the approved showcase themes.')
           .setStringSelectMenuComponent(themeSelect),
+        new LabelBuilder()
+          .setLabel('Describe Your Art')
+          .setDescription('Tell staff what your piece is about or what inspired it.')
+          .setTextInputComponent(descriptionInput),
         new LabelBuilder()
           .setLabel('Artwork Images')
           .setDescription(`Upload between 1 and ${MAX_IMAGE_UPLOADS} image files for this submission.`)
@@ -133,16 +147,19 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
 
       const selectedThemeValue = submission.fields.getStringSelectValues(THEME_FIELD_ID)[0];
       const selectedTheme = THEME_OPTIONS.find((theme) => theme.value === selectedThemeValue);
+      const description = submission.fields.getTextInputValue(DESCRIPTION_FIELD_ID).trim();
       const uploadedFiles = [...submission.fields.getUploadedFiles(IMAGE_FIELD_ID, true).values()];
 
       logArtShowcaseInfo(this.container.logger, 'submit.payload.parsed', {
+        descriptionLength: description.length,
         imageCount: uploadedFiles.length,
         themeValue: selectedTheme?.value,
         userId: submission.user.id
       });
 
-      if (!selectedTheme || uploadedFiles.length === 0) {
+      if (!selectedTheme || uploadedFiles.length === 0 || description.length === 0) {
         logArtShowcaseWarn(this.container.logger, 'submit.payload.invalid', {
+          descriptionLength: description.length,
           imageCount: uploadedFiles.length,
           themeValue: selectedTheme?.value,
           userId: submission.user.id
@@ -173,7 +190,7 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
             'Submission Failed',
             [
               'Only image uploads are allowed. Please remove the non-image files and try again.',
-              ...invalidFiles.map((file) => `- ${file.name}`)
+              ...invalidFiles.map((file) => formatDetailLine('File', file.name))
             ],
             'denied'
           ),
@@ -202,14 +219,26 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
         return;
       }
 
+      logArtShowcaseInfo(this.container.logger, 'submit.log-channel.resolved', {
+        channelId: reviewLogChannel.id,
+        userId: submission.user.id
+      });
+
       const submissionData: SubmissionDisplayData = {
         artistId: submission.user.id,
         artistName: submission.user.username,
         artistAvatarUrl: submission.user.displayAvatarURL({ extension: 'png' }),
         themeValue: selectedTheme.value,
+        description,
         images: uploadedFiles.map((file) => ({ name: file.name, url: file.url })),
         submittedAtTimestamp: submission.createdTimestamp
       };
+
+      logArtShowcaseDebug(this.container.logger, 'submit.payload.prepared', {
+        descriptionLength: submissionData.description.length,
+        imageCount: submissionData.images.length,
+        userId: submission.user.id
+      });
 
       const reviewMessage = await reviewLogChannel.send({
         components: buildReviewMessageComponents(submissionData, { state: 'pending' }),
@@ -227,6 +256,11 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       await reviewMessage.react('✅');
       await reviewMessage.react('❌');
 
+      logArtShowcaseDebug(this.container.logger, 'submit.review-message.reactions-added', {
+        reviewMessageId: reviewMessage.id,
+        userId: submission.user.id
+      });
+
       const reviewThread = await reviewMessage.startThread({
         name: buildReviewThreadName('pending', submission.user.username, selectedTheme.value),
         autoArchiveDuration: ThreadAutoArchiveDuration.OneDay
@@ -240,6 +274,12 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
 
       const reviewerMentions = ART_SHOWCASE_REVIEWER_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(' ');
       if (reviewerMentions) {
+        logArtShowcaseDebug(this.container.logger, 'submit.review-thread.ping-started', {
+          reviewThreadId: reviewThread.id,
+          roleCount: ART_SHOWCASE_REVIEWER_ROLE_IDS.length,
+          userId: submission.user.id
+        });
+
         await reviewThread.send({
           content: reviewerMentions,
           allowedMentions: {
@@ -255,16 +295,18 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
         });
       }
 
+      logArtShowcaseDebug(this.container.logger, 'submit.waiting-dm.started', {
+        reviewThreadId: reviewThread.id,
+        userId: submission.user.id
+      });
+
       await submission.user.send({
-        components: buildStatusContainerComponents(
-          'Art Showcase Update',
-          [
-            'Your Art Showcase submission is now waiting for staff review.',
-            `Theme: ${selectedTheme.label}`,
-            `Images submitted: ${submissionData.images.length}`
-          ],
-          'pending'
-        ),
+        components: buildSubmitterUpdateComponents(submissionData, [
+          'Your Art Showcase submission has been received.',
+          formatDetailLine('Status', 'Waiting for staff review'),
+          formatDetailLine('Theme', selectedTheme.label),
+          formatDetailLine('Images submitted', submissionData.images.length)
+        ], 'pending'),
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { parse: [] }
       }).then(() => {
@@ -282,6 +324,11 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       await submission.editReply({
         components: buildUserReceiptComponents(submissionData),
         flags: MessageFlags.IsComponentsV2
+      });
+
+      logArtShowcaseDebug(this.container.logger, 'submit.receipt.updated', {
+        reviewMessageId: reviewMessage.id,
+        userId: submission.user.id
       });
 
       logArtShowcaseInfo(this.container.logger, 'submit.completed', {

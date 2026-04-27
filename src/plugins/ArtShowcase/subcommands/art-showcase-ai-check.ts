@@ -9,7 +9,9 @@ import {
 import {
   buildStatusContainerComponents,
   extractReviewActionMetadataFromMessageComponents,
+  extractSubmissionDescriptionFromMessageComponents,
   extractSubmissionImagesFromMessageComponents,
+  formatDetailLine,
   resolveThemeOption,
   type ReviewActionMetadata,
   type SubmissionDisplayData
@@ -245,9 +247,10 @@ async function getSubmissionFromReviewMessage(
   reviewMessage: Message
 ) {
   const reviewAction: ReviewActionMetadata | null = extractReviewActionMetadataFromMessageComponents(reviewMessage.components);
+  const description = extractSubmissionDescriptionFromMessageComponents(reviewMessage.components);
   const images = extractSubmissionImagesFromMessageComponents(reviewMessage.components);
 
-  if (!reviewAction || images.length === 0) return null;
+  if (!reviewAction || !description || images.length === 0) return null;
 
   const artist = await client.users.fetch(reviewAction.artistId).catch(() => null);
   const theme = resolveThemeOption(reviewAction.themeValue);
@@ -257,6 +260,7 @@ async function getSubmissionFromReviewMessage(
     artistName: artist?.username ?? reviewAction.artistId,
     artistAvatarUrl: artist?.displayAvatarURL({ extension: 'png' }) ?? null,
     themeValue: theme?.value ?? reviewAction.themeValue,
+    description,
     images,
     submittedAtTimestamp: reviewMessage.createdTimestamp
   } satisfies SubmissionDisplayData;
@@ -276,10 +280,10 @@ function buildAiDetectionOverviewComponents(
           [
             '# AI Detection Advisory',
             'Using Sightengine GenAI reverse lookup.',
-            `Executed by: <@${executorId}>`,
-            `Artist: <@${submissionData.artistId}>`,
-            `Theme: ${theme?.label ?? submissionData.themeValue}`,
-            `Images checked: ${submissionData.images.length}`,
+            formatDetailLine('Executed by', `<@${executorId}>`),
+            formatDetailLine('Artist', `<@${submissionData.artistId}>`),
+            formatDetailLine('Theme', theme?.label ?? submissionData.themeValue),
+            formatDetailLine('Images checked', submissionData.images.length),
             'Treat these scores as a signal, not an automatic verdict.'
           ].join('\n')
         )
@@ -311,8 +315,8 @@ function buildAiDetectionResultComponents(
       container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           [
-            '- Status: Check failed',
-            `- Error: ${result.reason instanceof Error ? result.reason.message : 'Unknown error'}`
+            formatDetailLine('Status', 'Check failed'),
+            formatDetailLine('Error', result.reason instanceof Error ? result.reason.message : 'Unknown error')
           ].join('\n')
         )
       )
@@ -322,11 +326,11 @@ function buildAiDetectionResultComponents(
   const percent = Math.round(result.value.detection.aiGeneratedScore * 100);
   const topGenerator = Object.entries(result.value.detection.generators).sort((left, right) => right[1] - left[1])[0];
   const lines = [
-    `- AI likelihood: ${summarizeAiGeneratedScore(result.value.detection.aiGeneratedScore)} (${percent}%)`
+    formatDetailLine('AI likelihood', `${summarizeAiGeneratedScore(result.value.detection.aiGeneratedScore)} (${percent}%)`)
   ];
 
   if (topGenerator && topGenerator[1] > 0) {
-    lines.push(`- Top generator: ${formatGeneratorName(topGenerator[0])} (${Math.round(topGenerator[1] * 100)}%)`);
+    lines.push(formatDetailLine('Top generator', `${formatGeneratorName(topGenerator[0])} (${Math.round(topGenerator[1] * 100)}%)`));
   }
 
   return [container.addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.join('\n')))];

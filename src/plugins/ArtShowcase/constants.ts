@@ -18,8 +18,10 @@ export const THEME_OPTIONS = [
 
 export const SUBMIT_MODAL_ID = 'art-showcase:submit';
 export const THEME_FIELD_ID = 'art-showcase:theme';
+export const DESCRIPTION_FIELD_ID = 'art-showcase:description';
 export const IMAGE_FIELD_ID = 'art-showcase:image';
 export const MAX_IMAGE_UPLOADS = 10;
+export const ART_SHOWCASE_DETAIL_DOT = '<:ruledot:1487941593787797584>';
 export const REVIEW_ACTION_CUSTOM_ID_PREFIX = 'art-showcase:review';
 export const REVIEW_DENIAL_MODAL_CUSTOM_ID_PREFIX = 'art-showcase:deny-modal';
 export const REVIEW_DENIAL_REASON_FIELD_ID = 'art-showcase:deny-reason';

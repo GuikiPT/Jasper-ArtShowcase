@@ -13,6 +13,7 @@ import {
   ThumbnailBuilder
 } from 'discord.js';
 import {
+  ART_SHOWCASE_DETAIL_DOT,
   REVIEW_ACTION_CUSTOM_ID_PREFIX,
   REVIEW_DENIAL_MODAL_CUSTOM_ID_PREFIX,
   THEME_OPTIONS
@@ -32,6 +33,7 @@ export interface SubmissionDisplayData {
   artistName: string;
   artistAvatarUrl: string | null;
   themeValue: string;
+  description: string;
   images: SubmissionImage[];
   submittedAtTimestamp?: number;
 }
@@ -43,6 +45,7 @@ interface ReviewStatusPending {
 interface ReviewStatusResolved {
   state: 'approved' | 'denied';
   reviewedAtTimestamp: number;
+  reviewerId: string;
   denialReason?: string;
 }
 
@@ -64,6 +67,14 @@ export function createReviewActionCustomId(action: 'approve' | 'deny', artistId:
 
 export function createReviewDenialModalCustomId(artistId: string, themeValue: string) {
   return `${REVIEW_DENIAL_MODAL_CUSTOM_ID_PREFIX}:${artistId}:${themeValue}`;
+}
+
+export function formatDetailLine(label: string, value: string | number) {
+  return `${ART_SHOWCASE_DETAIL_DOT} **${label}**: ${value}`;
+}
+
+export function formatDetailText(value: string) {
+  return `${ART_SHOWCASE_DETAIL_DOT} ${value}`;
 }
 
 export function parseReviewActionCustomId(customId: string): ReviewActionMetadata | null {
@@ -131,14 +142,40 @@ export function buildUserReceiptComponents(submission: SubmissionDisplayData) {
           [
             '# Art Showcase Submission Received',
             'Your submission has been sent to staff for review.',
-            'Status: Waiting',
-            `Theme: ${theme?.label ?? submission.themeValue}`,
-            `Images submitted: ${submission.images.length}`
+            formatDetailLine('Status', 'Waiting for staff review'),
+            formatDetailLine('Theme', theme?.label ?? submission.themeValue),
+            formatDetailLine('Images submitted', submission.images.length)
           ].join('\n')
         )
       )
       .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
       .addMediaGalleryComponents(buildMediaGallery(submission.images))
+  ];
+}
+
+export function buildSubmitterUpdateComponents(
+  submission: SubmissionDisplayData,
+  lines: string[],
+  status: ReviewStatus['state'] = 'pending'
+) {
+  const { contentLines, denialReason } = splitDenialReason(lines);
+
+  const container = new ContainerBuilder()
+    .setAccentColor(resolveReviewAccentColor({ state: status } as ReviewStatus))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(['# Art Showcase Update', ...contentLines].join('\n'))
+    );
+
+  if (denialReason) {
+    addDenialReasonSection(container, denialReason);
+  }
+
+  container
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addMediaGalleryComponents(buildMediaGallery(submission.images));
+
+  return [
+    container
   ];
 }
 
@@ -158,8 +195,8 @@ export function buildReviewMessageComponents(submission: SubmissionDisplayData, 
           new TextDisplayBuilder().setContent(
             [
               '# Art Showcase Staff Review',
-              `Artist: <@${submission.artistId}>`,
-              `Theme: ${theme?.label ?? submission.themeValue}`
+              formatDetailLine('Artist', `<@${submission.artistId}>`),
+              formatDetailLine('Theme', theme?.label ?? submission.themeValue)
             ].join('\n')
           )
         )
@@ -168,6 +205,8 @@ export function buildReviewMessageComponents(submission: SubmissionDisplayData, 
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(buildOverviewText(submission, theme?.label ?? submission.themeValue)));
 
   container
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(buildDescriptionText(submission.description)))
     .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
     .addMediaGalleryComponents(buildMediaGallery(submission.images))
     .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
@@ -186,11 +225,11 @@ export function buildReviewMessageComponents(submission: SubmissionDisplayData, 
       )
     );
   } else {
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        buildReviewStatusText(status)
-      )
-    );
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(buildReviewStatusText(status)));
+
+    if (status.state === 'denied' && status.denialReason) {
+      addDenialReasonSection(container, status.denialReason);
+    }
   }
 
   return [container];
@@ -213,8 +252,8 @@ export function buildPublishedMessageComponents(submission: SubmissionDisplayDat
             new TextDisplayBuilder().setContent(
               [
                 '# Art Showcase',
-                `Artist: <@${submission.artistId}>`,
-                `Theme: ${theme?.label ?? submission.themeValue}`
+                formatDetailLine('Artist', `<@${submission.artistId}>`),
+                formatDetailLine('Theme', theme?.label ?? submission.themeValue)
               ].join('\n')
             )
           )
@@ -229,12 +268,20 @@ export function buildStatusContainerComponents(
   lines: string[],
   status: ReviewStatus['state'] = 'pending'
 ) {
+  const { contentLines, denialReason } = splitDenialReason(lines);
+
+  const container = new ContainerBuilder()
+    .setAccentColor(resolveReviewAccentColor({ state: status } as ReviewStatus))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent([`# ${title}`, ...contentLines].join('\n'))
+    );
+
+  if (denialReason) {
+    addDenialReasonSection(container, denialReason);
+  }
+
   return [
-    new ContainerBuilder()
-      .setAccentColor(resolveReviewAccentColor({ state: status } as ReviewStatus))
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent([`# ${title}`, ...lines].join('\n'))
-      )
+    container
   ];
 }
 
@@ -270,6 +317,35 @@ export function extractSubmissionImagesFromMessageComponents(components: readonl
   return images;
 }
 
+export function extractSubmissionDescriptionFromMessageComponents(components: readonly unknown[]) {
+  let description: string | null = null;
+
+  const visit = (component: unknown) => {
+    if (!component || typeof component !== 'object' || description) return;
+
+    const candidate = component as {
+      components?: unknown[];
+      content?: string;
+    };
+
+    if (typeof candidate.content === 'string') {
+      const parsed = parseDescriptionFromTextContent(candidate.content);
+      if (parsed) {
+        description = parsed;
+        return;
+      }
+    }
+
+    if (Array.isArray(candidate.components)) {
+      for (const child of candidate.components) visit(child);
+    }
+  };
+
+  for (const component of components) visit(component);
+
+  return description;
+}
+
 export function buildDiscussionThreadName(prefix: string, artistName: string, themeValue: string) {
   const theme = resolveThemeOption(themeValue);
   return `${prefix} - ${artistName} - ${theme?.label ?? themeValue}`.slice(0, 100);
@@ -289,18 +365,22 @@ function buildMediaGallery(images: SubmissionImage[]) {
 function buildOverviewText(submission: SubmissionDisplayData, themeLabel: string) {
   const lines = [
     '### Submission Overview',
-    `- Artist: <@${submission.artistId}>`,
-    `- Username: ${submission.artistName}`,
-    `- User ID: ${submission.artistId}`,
-    `- Theme: ${themeLabel}`,
-    `- Images: ${submission.images.length}`
+    formatDetailLine('Artist', `<@${submission.artistId}>`),
+    formatDetailLine('Username', submission.artistName),
+    formatDetailLine('User ID', submission.artistId),
+    formatDetailLine('Theme', themeLabel),
+    formatDetailLine('Images', submission.images.length)
   ];
 
   if (submission.submittedAtTimestamp) {
-    lines.push(`- Submitted: <t:${Math.floor(submission.submittedAtTimestamp / 1_000)}:F>`);
+    lines.push(formatDetailLine('Submitted', `<t:${Math.floor(submission.submittedAtTimestamp / 1_000)}:F>`));
   }
 
   return lines.join('\n');
+}
+
+function buildDescriptionText(description: string) {
+  return ['### Artist Description', `\`\`\`txt\n${description}\n\`\`\``].join('\n');
 }
 
 function resolveReviewAccentColor(status: ReviewStatus) {
@@ -309,18 +389,62 @@ function resolveReviewAccentColor(status: ReviewStatus) {
   return ART_SHOWCASE_PENDING_COLOR;
 }
 
+function splitDenialReason(lines: string[]) {
+  const contentLines: string[] = [];
+  let denialReason: string | null = null;
+
+  for (const line of lines) {
+    const normalizedLine = normalizeDetailLine(line);
+
+    if (normalizedLine.startsWith('Reason: ')) {
+      denialReason = normalizedLine.slice('Reason: '.length).trim() || 'No denial reason provided.';
+      continue;
+    }
+
+    contentLines.push(line);
+  }
+
+  return { contentLines, denialReason };
+}
+
+function parseDescriptionFromTextContent(content: string) {
+  const match = content.match(/### Artist Description\n```txt\n([\s\S]*?)\n```/);
+  return match?.[1]?.trim() || null;
+}
+
+function addDenialReasonSection(container: ContainerBuilder, denialReason: string) {
+  const formattedReason = denialReason.replace(/```/g, '```\u200b');
+
+  container
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(['### Denial Reason', `\`\`\`txt\n${formattedReason}\n\`\`\``].join('\n'))
+    );
+
+  return container;
+}
+
 function buildReviewStatusText(status: ReviewStatus) {
   if (status.state === 'pending') return '### Review Status\nWaiting for staff review.';
 
   const lines = [
     '### Review Status',
-    `Status: ${status.state === 'approved' ? 'Approved' : 'Denied'}.`,
-    `Reviewed at <t:${Math.floor(status.reviewedAtTimestamp / 1_000)}:F>.`
+    formatDetailLine('Status', status.state === 'approved' ? 'Approved' : 'Denied'),
+    formatDetailLine('Reviewed by', `<@${status.reviewerId}>`),
+    formatDetailLine('Reviewed at', `<t:${Math.floor(status.reviewedAtTimestamp / 1_000)}:F>`)
   ];
 
-  if (status.state === 'denied' && status.denialReason) {
-    lines.push(`Reason: ${status.denialReason}`);
+  return lines.join('\n');
+}
+
+function normalizeDetailLine(line: string) {
+  if (line.startsWith(`${ART_SHOWCASE_DETAIL_DOT} `)) {
+    return line.slice(ART_SHOWCASE_DETAIL_DOT.length + 1);
   }
 
-  return lines.join('\n');
+  if (line.startsWith('- ')) {
+    return line.slice(2);
+  }
+
+  return line;
 }
