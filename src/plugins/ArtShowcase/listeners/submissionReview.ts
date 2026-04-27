@@ -158,8 +158,6 @@ export class UserEvent extends Listener {
     await interaction.message.edit({
       components: buildReviewMessageComponents(submission, {
         state: 'approved',
-        reviewerId: interaction.user.id,
-        reviewerName: interaction.user.username,
         reviewedAtTimestamp
       }),
       flags: MessageFlags.IsComponentsV2,
@@ -173,7 +171,7 @@ export class UserEvent extends Listener {
         components: buildStatusContainerComponents(
           'Submission Approved',
           [
-            `Approved by <@${interaction.user.id}>.`,
+            'The submission was approved.',
             `Approved at <t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>.`,
             `Published to <#${ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID}>.`
           ],
@@ -194,7 +192,6 @@ export class UserEvent extends Listener {
     await notifyMember(this.container.logger, submission.artistId, this.container.client, [
       'Your Art Showcase submission was approved.',
       `Theme: ${resolveThemeLabel(submission.themeValue)}`,
-      `Approved by ${interaction.user.username}.`,
       `Approved at <t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>.`,
       `It is now live in <#${ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID}>.`
     ]);
@@ -257,8 +254,6 @@ export class UserEvent extends Listener {
     await interaction.update({
       components: buildReviewMessageComponents(submission, {
         state: 'denied',
-        reviewerId: interaction.user.id,
-        reviewerName: interaction.user.username,
         reviewedAtTimestamp,
         denialReason: denialReason || undefined
       }),
@@ -273,7 +268,7 @@ export class UserEvent extends Listener {
         components: buildStatusContainerComponents(
           'Submission Denied',
           [
-            `Denied by <@${interaction.user.id}>.`,
+            'The submission was denied.',
             `Denied at <t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>.`,
             denialReason ? `Reason: ${denialReason}` : 'Reason: No denial reason provided.'
           ],
@@ -294,7 +289,6 @@ export class UserEvent extends Listener {
     await notifyMember(this.container.logger, submission.artistId, this.container.client, [
       'Your Art Showcase submission was denied.',
       `Theme: ${resolveThemeLabel(submission.themeValue)}`,
-      `Denied by ${interaction.user.username}.`,
       `Denied at <t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>.`,
       denialReason ? `Reason: ${denialReason}` : 'No denial reason was provided.'
     ]);

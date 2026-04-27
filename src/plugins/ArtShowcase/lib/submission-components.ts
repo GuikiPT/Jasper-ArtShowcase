@@ -42,8 +42,6 @@ interface ReviewStatusPending {
 
 interface ReviewStatusResolved {
   state: 'approved' | 'denied';
-  reviewerId: string;
-  reviewerName: string;
   reviewedAtTimestamp: number;
   denialReason?: string;
 }
@@ -316,7 +314,7 @@ function buildReviewStatusText(status: ReviewStatus) {
 
   const lines = [
     '### Review Status',
-    `${status.state === 'approved' ? 'Approved' : 'Denied'} by <@${status.reviewerId}>.`,
+    `Status: ${status.state === 'approved' ? 'Approved' : 'Denied'}.`,
     `Reviewed at <t:${Math.floor(status.reviewedAtTimestamp / 1_000)}:F>.`
   ];
 
