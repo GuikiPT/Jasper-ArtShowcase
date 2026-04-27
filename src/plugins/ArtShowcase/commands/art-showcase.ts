@@ -14,7 +14,7 @@ export class ArtShowcaseCommand extends ModuleSubcommand<ArtShowcasePlugin> {
   public override registerApplicationCommands(registry: ApplicationCommandRegistry) {
     registry.registerChatInputCommand((builder) => {
       RegisterSubcommandsHooks.subcommands(
-        this as Parameters<typeof RegisterSubcommandsHooks.subcommands>[0],
+        this as unknown as Parameters<typeof RegisterSubcommandsHooks.subcommands>[0],
         builder
       );
 
