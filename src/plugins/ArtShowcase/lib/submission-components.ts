@@ -148,7 +148,7 @@ export function buildUserReceiptComponents(submission: SubmissionDisplayData) {
           ].join('\n')
         )
       )
-      .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+      .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
       .addMediaGalleryComponents(buildMediaGallery(submission.images))
   ];
 }
@@ -171,7 +171,7 @@ export function buildSubmitterUpdateComponents(
   }
 
   container
-    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
     .addMediaGalleryComponents(buildMediaGallery(submission.images));
 
   return [
@@ -201,15 +201,15 @@ export function buildReviewMessageComponents(submission: SubmissionDisplayData, 
           )
         )
     )
-    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(buildOverviewText(submission, theme?.label ?? submission.themeValue)));
 
   container
-    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(buildDescriptionText(submission.description)))
-    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
     .addMediaGalleryComponents(buildMediaGallery(submission.images))
-    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
   if (status.state === 'pending') {
     container.addActionRowComponents(
@@ -416,7 +416,7 @@ function addDenialReasonSection(container: ContainerBuilder, denialReason: strin
   const formattedReason = denialReason.replace(/```/g, '```\u200b');
 
   container
-    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(['### Denial Reason', `\`\`\`txt\n${formattedReason}\n\`\`\``].join('\n'))
     );

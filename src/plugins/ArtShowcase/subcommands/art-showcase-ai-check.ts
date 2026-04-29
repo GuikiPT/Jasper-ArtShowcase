@@ -302,13 +302,13 @@ function buildAiDetectionResultComponents(
   const container = new ContainerBuilder()
     .setAccentColor(0xf1c40f)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## Image ${index + 1}`))
-    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
     .addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(
         new MediaGalleryItemBuilder().setURL(image.url).setDescription(image.name)
       )
     )
-    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true));
 
   if (result.status === 'rejected') {
     return [
