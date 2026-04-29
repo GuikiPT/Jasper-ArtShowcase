@@ -240,7 +240,7 @@ export function buildPublishedMessageComponents(submission: SubmissionDisplayDat
 
   return [
     new ContainerBuilder()
-      .setAccentColor(ART_SHOWCASE_APPROVED_COLOR)
+      .setAccentColor(ART_SHOWCASE_PENDING_COLOR)
       .addSectionComponents(
         new SectionBuilder()
           .setThumbnailAccessory(
