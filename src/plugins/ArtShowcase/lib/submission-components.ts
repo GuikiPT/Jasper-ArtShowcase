@@ -19,8 +19,8 @@ import {
   THEME_OPTIONS
 } from '../constants';
 
-const ART_SHOWCASE_PENDING_COLOR = 0xf1c40f;
-const ART_SHOWCASE_APPROVED_COLOR = 0xF8A44B;
+const ART_SHOWCASE_PENDING_COLOR = 0xF8A44B;
+const ART_SHOWCASE_APPROVED_COLOR = 0x2ecc71;
 const ART_SHOWCASE_DENIED_COLOR = 0xe74c3c;
 
 export interface SubmissionImage {
