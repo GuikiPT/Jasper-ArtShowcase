@@ -258,7 +258,7 @@ export function buildPublishedMessageComponents(submission: SubmissionDisplayDat
             )
           )
       )
-      .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+      .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
       .addMediaGalleryComponents(buildMediaGallery(submission.images))
   ];
 }
