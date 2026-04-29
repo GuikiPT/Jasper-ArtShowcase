@@ -194,7 +194,7 @@ export function buildReviewMessageComponents(submission: SubmissionDisplayData, 
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
             [
-              '# Art Showcase Staff Review',
+              '## Art Showcase Staff Review',
               formatDetailLine('Artist', `<@${submission.artistId}>`),
               formatDetailLine('Theme', theme?.label ?? submission.themeValue)
             ].join('\n')
@@ -251,7 +251,7 @@ export function buildPublishedMessageComponents(submission: SubmissionDisplayDat
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
               [
-                '# Art Showcase',
+                '## Art Showcase',
                 formatDetailLine('Artist', `<@${submission.artistId}>`),
                 formatDetailLine('Theme', theme?.label ?? submission.themeValue)
               ].join('\n')
