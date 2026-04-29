@@ -70,7 +70,7 @@ export function createReviewDenialModalCustomId(artistId: string, themeValue: st
 }
 
 export function formatDetailLine(label: string, value: string | number) {
-  return `${ART_SHOWCASE_DETAIL_DOT} **${label}**: ${value}`;
+  return `> ${ART_SHOWCASE_DETAIL_DOT} **${label}**: ${value}`;
 }
 
 export function formatDetailText(value: string) {
