@@ -263,6 +263,8 @@ export function buildPublishedMessageComponents(submission: SubmissionDisplayDat
           )
       )
       .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(buildDescriptionText(submission.description)))
+      .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
       .addMediaGalleryComponents(buildMediaGallery(submission.images))
   ];
 }
@@ -384,7 +386,7 @@ function buildOverviewText(submission: SubmissionDisplayData, themeLabel: string
 }
 
 function buildDescriptionText(description: string) {
-  return ['### Artist Description', `\`\`\`txt\n${description}\n\`\`\``].join('\n');
+  return ['### Artist Art Description', `\`\`\`txt\n${description}\n\`\`\``].join('\n');
 }
 
 function resolveReviewAccentColor(status: ReviewStatus) {
