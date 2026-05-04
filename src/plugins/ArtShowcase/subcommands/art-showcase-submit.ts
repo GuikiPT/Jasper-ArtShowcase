@@ -3,6 +3,7 @@ import { ModuleCommand } from '@kbotdev/plugin-modules';
 import { RegisterSubCommand } from '@kaname-png/plugin-subcommands-advanced';
 import type { ArtShowcasePlugin } from '../artshowcase-plugin';
 import {
+  ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
   ART_SHOWCASE_REVIEWER_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
   ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID,
@@ -14,7 +15,9 @@ import {
   THEME_FIELD_ID,
   THEME_OPTIONS
 } from '../constants';
+import { getSubmissionCooldownExpiresAt } from '../lib/submission-cooldown';
 import { logArtShowcaseDebug, logArtShowcaseInfo, logArtShowcaseWarn } from '../lib/logging';
+import { buildStatusContainerComponents } from '../lib/submission-components';
 import { FileUploadBuilder, LabelBuilder, MessageFlags, ModalBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextDisplayBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 
 @RegisterSubCommand('art-showcase', (builder) =>
@@ -49,6 +52,29 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       await interaction.reply({
         content: 'Art Showcase submission channels or reviewer roles are not configured yet.',
         flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const cooldownExpiresAt = getSubmissionCooldownExpiresAt(interaction.user.id);
+    if (cooldownExpiresAt) {
+      logArtShowcaseWarn(this.container.logger, 'submit.command.cooldown-active', {
+        cooldownExpiresAt,
+        cooldownMinutes: ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
+        userId: interaction.user.id
+      });
+
+      await interaction.reply({
+        components: buildStatusContainerComponents(
+          'Submission Cooldown',
+          [
+            `You recently submitted artwork. Try again <t:${Math.floor(cooldownExpiresAt / 1_000)}:R>.`,
+            `The submission cooldown is ${ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES} minutes.`
+          ],
+          'pending'
+        ),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
       });
       return;
     }

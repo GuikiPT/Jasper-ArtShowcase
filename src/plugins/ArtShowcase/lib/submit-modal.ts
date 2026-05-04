@@ -1,4 +1,5 @@
 import {
+  ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
   ART_SHOWCASE_REVIEWER_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
   DESCRIPTION_FIELD_ID,
@@ -24,6 +25,7 @@ import {
   logArtShowcaseInfo,
   logArtShowcaseWarn
 } from './logging';
+import { getSubmissionCooldownExpiresAt, setSubmissionCooldown } from './submission-cooldown';
 import {
   MessageFlags,
   ThreadAutoArchiveDuration,
@@ -59,6 +61,29 @@ export async function handleArtShowcaseSubmitModal({
     guildId: interaction.guildId,
     userId: interaction.user.id
   });
+
+  const cooldownExpiresAt = getSubmissionCooldownExpiresAt(interaction.user.id);
+  if (cooldownExpiresAt) {
+    logArtShowcaseWarn(logger, 'submit.modal.cooldown-active', {
+      cooldownExpiresAt,
+      cooldownMinutes: ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
+      userId: interaction.user.id
+    });
+
+    await interaction.reply({
+      components: buildStatusContainerComponents(
+        'Submission Cooldown',
+        [
+          `You recently submitted artwork. Try again <t:${Math.floor(cooldownExpiresAt / 1_000)}:R>.`,
+          `The submission cooldown is ${ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES} minutes.`
+        ],
+        'pending'
+      ),
+      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
 
   try {
     await interaction.deferReply({
@@ -196,6 +221,13 @@ export async function handleArtShowcaseSubmitModal({
     logArtShowcaseInfo(logger, 'submit.review-thread.created', {
       reviewThreadId: reviewThread.id,
       reviewMessageId: reviewMessage.id,
+      userId: interaction.user.id
+    });
+
+    const cooldownSetExpiresAt = setSubmissionCooldown(interaction.user.id);
+    logArtShowcaseDebug(logger, 'submit.cooldown.set', {
+      cooldownExpiresAt: cooldownSetExpiresAt,
+      cooldownMinutes: ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
       userId: interaction.user.id
     });
 
