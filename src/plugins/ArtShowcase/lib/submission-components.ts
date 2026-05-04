@@ -269,6 +269,58 @@ export function buildPublishedMessageComponents(submission: SubmissionDisplayDat
   ];
 }
 
+export function buildBlockedSubmissionLogComponents(
+  submission: SubmissionDisplayData,
+  details: {
+    detectionType: string;
+    matchedPattern: string;
+    ruleName: string;
+    sourceChannelId?: string | null;
+  }
+) {
+  const theme = resolveThemeOption(submission.themeValue);
+
+  return [
+    new ContainerBuilder()
+      .setAccentColor(ART_SHOWCASE_DENIED_COLOR)
+      .addSectionComponents(
+        new SectionBuilder()
+          .setThumbnailAccessory(
+            new ThumbnailBuilder().setURL(
+              submission.artistAvatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png'
+            )
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [
+                '## Art Showcase Submission Blocked',
+                formatPlainDetailLine('Artist', `<@${submission.artistId}>`),
+                formatPlainDetailLine('Username', submission.artistName),
+                formatPlainDetailLine('User ID', submission.artistId),
+                formatPlainDetailLine('Theme', theme?.label ?? submission.themeValue),
+                ...(details.sourceChannelId ? [formatPlainDetailLine('Channel', `<#${details.sourceChannelId}>`)] : [])
+              ].join('\n')
+            )
+          )
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          [
+            '### Automod Match',
+            formatPlainDetailLine('Automod Rule', details.ruleName),
+            formatPlainDetailLine('Detection Type', details.detectionType),
+            formatPlainDetailLine('Matched Pattern', `\`${details.matchedPattern}\``)
+          ].join('\n')
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(buildDescriptionText(submission.description)))
+      .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large).setDivider(true))
+      .addMediaGalleryComponents(buildMediaGallery(submission.images))
+  ];
+}
+
 export function buildStatusContainerComponents(
   title: string,
   lines: string[],

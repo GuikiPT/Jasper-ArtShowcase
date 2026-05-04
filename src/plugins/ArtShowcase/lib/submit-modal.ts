@@ -1,4 +1,5 @@
 import {
+  ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID,
   ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
   ART_SHOWCASE_REVIEWER_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
@@ -9,7 +10,9 @@ import {
   THEME_FIELD_ID,
   THEME_OPTIONS
 } from '../constants';
+import { checkSubmissionDescriptionAgainstAutomod } from './submission-automod';
 import {
+  buildBlockedSubmissionLogComponents,
   buildReviewThreadName,
   buildReviewMessageComponents,
   buildStatusContainerComponents,
@@ -94,6 +97,10 @@ export async function handleArtShowcaseSubmitModal({
     const selectedTheme = THEME_OPTIONS.find((theme) => theme.value === selectedThemeValue);
     const description = interaction.fields.getTextInputValue(DESCRIPTION_FIELD_ID).trim();
     const uploadedFiles = [...interaction.fields.getUploadedFiles(IMAGE_FIELD_ID, true).values()];
+    const descriptionAutomodMatch = checkSubmissionDescriptionAgainstAutomod(description, {
+      channelId: interaction.channelId ?? '',
+      memberRoleIds: interaction.member.roles.cache.map((role) => role.id)
+    });
 
     logArtShowcaseInfo(logger, 'submit.payload.parsed', {
       descriptionLength: description.length,
@@ -126,6 +133,35 @@ export async function handleArtShowcaseSubmitModal({
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { parse: [] }
       });
+      return;
+    }
+
+    if (descriptionAutomodMatch) {
+      logArtShowcaseWarn(logger, 'submit.description.blocked-by-automod', {
+        matchedBy: descriptionAutomodMatch.matchedBy,
+        ruleName: descriptionAutomodMatch.ruleName,
+        userId: interaction.user.id
+      });
+
+      await interaction.editReply({
+        components: buildStatusContainerComponents(
+          'Submission Blocked',
+          ['Your submission description matches the server blacklist and could not be submitted.'],
+          'denied'
+        ),
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
+      });
+
+      await sendAutomodLog({
+        description,
+        images: uploadedFiles.map((file) => ({ name: file.name, url: file.url })),
+        interaction,
+        matchedBy: descriptionAutomodMatch.matchedBy,
+        matchedValue: descriptionAutomodMatch.matchedValue,
+        ruleName: descriptionAutomodMatch.ruleName,
+        selectedThemeValue
+      }).catch(() => null);
       return;
     }
 
@@ -343,4 +379,48 @@ async function fetchSendableChannel(client: Client<boolean>, channelId: string) 
   if (!channel || !channel.isTextBased() || !('send' in channel)) return null;
 
   return channel as SendableChannels;
+}
+
+async function sendAutomodLog({
+  description,
+  images,
+  interaction,
+  matchedBy,
+  matchedValue,
+  ruleName,
+  selectedThemeValue,
+}: {
+  description: string;
+  images: SubmissionDisplayData['images'];
+  interaction: ModalSubmitInteraction<'cached'>;
+  matchedBy: 'keyword' | 'regex';
+  matchedValue: string;
+  ruleName: string;
+  selectedThemeValue: string;
+}) {
+  if (!ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID) return;
+
+  const automodLogChannel = await fetchSendableChannel(interaction.client, ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID);
+  if (!automodLogChannel) return;
+
+  const blockedSubmission: SubmissionDisplayData = {
+    artistId: interaction.user.id,
+    artistName: interaction.user.username,
+    artistAvatarUrl: interaction.user.displayAvatarURL({ extension: 'png' }),
+    themeValue: selectedThemeValue,
+    description,
+    images,
+    submittedAtTimestamp: interaction.createdTimestamp
+  };
+
+  await automodLogChannel.send({
+    components: buildBlockedSubmissionLogComponents(blockedSubmission, {
+      detectionType: matchedBy === 'regex' ? 'Regex blacklist' : 'Word blacklist',
+      matchedPattern: matchedValue,
+      ruleName,
+      sourceChannelId: interaction.channelId
+    }),
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] }
+  });
 }
