@@ -73,6 +73,10 @@ export function formatDetailLine(label: string, value: string | number) {
   return `> ${ART_SHOWCASE_DETAIL_DOT} **${label}**: ${value}`;
 }
 
+export function formatPlainDetailLine(label: string, value: string | number) {
+  return `${ART_SHOWCASE_DETAIL_DOT} **${label}**: ${value}`;
+}
+
 export function formatDetailText(value: string) {
   return `${ART_SHOWCASE_DETAIL_DOT} ${value}`;
 }
@@ -195,8 +199,8 @@ export function buildReviewMessageComponents(submission: SubmissionDisplayData, 
           new TextDisplayBuilder().setContent(
             [
               '## Art Showcase Staff Review',
-              formatDetailLine('Artist', `<@${submission.artistId}>`),
-              formatDetailLine('Theme', theme?.label ?? submission.themeValue)
+              formatPlainDetailLine('Artist', `<@${submission.artistId}>`),
+              formatPlainDetailLine('Theme', theme?.label ?? submission.themeValue)
             ].join('\n')
           )
         )
