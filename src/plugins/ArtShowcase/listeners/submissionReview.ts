@@ -5,6 +5,7 @@ import {
   ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID,
   REVIEW_DENIAL_REASON_FIELD_ID
 } from '../constants';
+import { handleArtShowcaseSubmitModal, isArtShowcaseSubmitModal } from '../lib/submit-modal';
 import {
   buildDiscussionThreadName,
   buildPublishedMessageComponents,
@@ -56,6 +57,15 @@ export class UserEvent extends Listener {
     if (interaction.isModalSubmit()) {
       if (!interaction.inCachedGuild()) {
         await replyWithStatus(interaction, 'Review Unavailable', ['This review action can only be used inside the server.'], 'denied');
+        return;
+      }
+
+      if (isArtShowcaseSubmitModal(interaction.customId)) {
+        await handleArtShowcaseSubmitModal({
+          client: this.container.client,
+          interaction,
+          logger: this.container.logger
+        });
         return;
       }
 
