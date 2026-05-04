@@ -466,7 +466,7 @@ function splitDenialReason(lines: string[]) {
 }
 
 function parseDescriptionFromTextContent(content: string) {
-  const match = content.match(/### Artist Description\n```txt\n([\s\S]*?)\n```/);
+  const match = content.match(/### Artist(?: Art)? Description\n```txt\n([\s\S]*?)\n```/);
   return match?.[1]?.trim() || null;
 }
 
