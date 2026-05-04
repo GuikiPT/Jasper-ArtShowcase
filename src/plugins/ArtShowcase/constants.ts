@@ -19,6 +19,7 @@ export const THEME_OPTIONS = [
 export const SUBMIT_MODAL_ID = 'art-showcase:submit';
 export const THEME_FIELD_ID = 'art-showcase:theme';
 export const DESCRIPTION_FIELD_ID = 'art-showcase:description';
+export const DESCRIPTION_MAX_LENGTH = 512;
 export const IMAGE_FIELD_ID = 'art-showcase:image';
 export const MAX_IMAGE_UPLOADS = 10;
 export const ART_SHOWCASE_DETAIL_DOT = '<:test_jasper_dot:1486080288755945614>';

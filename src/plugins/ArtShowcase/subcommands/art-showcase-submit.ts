@@ -7,6 +7,7 @@ import {
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
   ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID,
   DESCRIPTION_FIELD_ID,
+  DESCRIPTION_MAX_LENGTH,
   IMAGE_FIELD_ID,
   MAX_IMAGE_UPLOADS,
   SUBMIT_MODAL_ID,
@@ -94,7 +95,7 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
       .setCustomId(DESCRIPTION_FIELD_ID)
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(true)
-      .setMaxLength(1_000)
+      .setMaxLength(DESCRIPTION_MAX_LENGTH)
       .setPlaceholder('Describe your art, idea, inspiration, or process.');
 
     modal
