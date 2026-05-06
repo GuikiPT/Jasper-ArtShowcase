@@ -204,8 +204,7 @@ export function buildReviewMessageComponents(submission: SubmissionDisplayData, 
               formatPlainDetailLine('Artist Mention', `<@${submission.artistId}>`),
               formatPlainDetailLine('Artist ID', submission.artistId),
               formatPlainDetailLine('Artist Username', submission.artistUsername),
-              formatPlainDetailLine('Artist Server Name', submission.artistServerName),
-              formatPlainDetailLine('Theme', theme?.label ?? submission.themeValue)
+              formatPlainDetailLine('Artist Server Name', submission.artistServerName)
             ].join('\n')
           )
         )
@@ -464,10 +463,6 @@ function buildMediaGallery(images: SubmissionImage[]) {
 function buildOverviewText(submission: SubmissionDisplayData, themeLabel: string) {
   const lines = [
     '### Submission Overview',
-    formatDetailLine('Artist Mention', `<@${submission.artistId}>`),
-    formatDetailLine('Artist ID', submission.artistId),
-    formatDetailLine('Artist Username', submission.artistUsername),
-    formatDetailLine('Artist Server Name', submission.artistServerName),
     formatDetailLine('Theme', themeLabel),
     formatDetailLine('Images', submission.images.length)
   ];
