@@ -49,6 +49,9 @@ export const REVIEW_ACTION_CUSTOM_ID_PREFIX = 'art-showcase:review';
 export const REVIEW_DENIAL_MODAL_CUSTOM_ID_PREFIX = 'art-showcase:deny-modal';
 export const REVIEW_DENIAL_REASON_FIELD_ID = 'art-showcase:deny-reason';
 
+export const ART_SHOWCASE_BLACKLIST_ROLE_IDS: readonly string[] = envStringArray('ART_SHOWCASE_BLACKLIST_ROLE_IDS', [
+  '1191884366549352458' // Art Blacklist
+]);
 export const ART_SHOWCASE_REVIEWER_ROLE_IDS: readonly string[] = envStringArray('ART_SHOWCASE_REVIEWER_ROLE_IDS', [
   '1221608852676677732', // Server Manager
   '832813071285616680', // Administrator

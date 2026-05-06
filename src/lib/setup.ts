@@ -28,6 +28,7 @@ colorette.createColors({ useColor: true });
 declare module '@skyra/env-utilities' {
 	interface Env {
 		ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID: string | undefined;
+		ART_SHOWCASE_BLACKLIST_ROLE_IDS: ArrayString | undefined;
 		ART_SHOWCASE_REVIEW_PING_ROLE_IDS: ArrayString | undefined;
 		ART_SHOWCASE_REVIEWER_ROLE_IDS: ArrayString | undefined;
 		ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES: string | undefined;

@@ -1,5 +1,6 @@
 import {
   ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID,
+  ART_SHOWCASE_BLACKLIST_ROLE_IDS,
   ART_SHOWCASE_REVIEW_PING_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
@@ -64,6 +65,24 @@ export async function handleArtShowcaseSubmitModal({
     guildId: interaction.guildId,
     userId: interaction.user.id
   });
+
+  if (hasBlacklistedRole(interaction.member.roles.cache.map((role) => role.id))) {
+    logArtShowcaseWarn(logger, 'submit.modal.blacklisted', {
+      blacklistRoleCount: ART_SHOWCASE_BLACKLIST_ROLE_IDS.length,
+      userId: interaction.user.id
+    });
+
+    await interaction.reply({
+      components: buildStatusContainerComponents(
+        'Submission Blocked',
+        ['You are not allowed to submit artwork to Art Showcase.'],
+        'denied'
+      ),
+      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
 
   const cooldownExpiresAt = getSubmissionCooldownExpiresAt(interaction.user.id);
   if (cooldownExpiresAt) {
@@ -379,6 +398,10 @@ async function fetchSendableChannel(client: Client<boolean>, channelId: string) 
   if (!channel || !channel.isTextBased() || !('send' in channel)) return null;
 
   return channel as SendableChannels;
+}
+
+function hasBlacklistedRole(memberRoleIds: readonly string[]) {
+  return ART_SHOWCASE_BLACKLIST_ROLE_IDS.some((roleId) => memberRoleIds.includes(roleId));
 }
 
 async function sendAutomodLog({
