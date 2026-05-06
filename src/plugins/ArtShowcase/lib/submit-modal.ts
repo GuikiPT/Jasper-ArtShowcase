@@ -1,9 +1,11 @@
 import {
   ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID,
   ART_SHOWCASE_BLACKLIST_ROLE_IDS,
+  ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL,
   ART_SHOWCASE_REVIEW_PING_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
+  ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS,
   DESCRIPTION_FIELD_ID,
   DESCRIPTION_MAX_LENGTH,
   IMAGE_FIELD_ID,
@@ -76,6 +78,25 @@ export async function handleArtShowcaseSubmitModal({
       components: buildStatusContainerComponents(
         'Submission Blocked',
         ['You are not allowed to submit artwork to Art Showcase.'],
+        'denied'
+      ),
+      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
+
+  if (!hasWhitelistedSubmitRole(interaction.member.roles.cache.map((role) => role.id))) {
+    logArtShowcaseWarn(logger, 'submit.modal.whitelist-blocked', {
+      minimumSubmitLevel: ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL,
+      whitelistRoleCount: ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS.length,
+      userId: interaction.user.id
+    });
+
+    await interaction.reply({
+      components: buildStatusContainerComponents(
+        'Submission Blocked',
+        [`You need at least the ${ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL} role to submit artwork to Art Showcase.`],
         'denied'
       ),
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
@@ -402,6 +423,10 @@ async function fetchSendableChannel(client: Client<boolean>, channelId: string) 
 
 function hasBlacklistedRole(memberRoleIds: readonly string[]) {
   return ART_SHOWCASE_BLACKLIST_ROLE_IDS.some((roleId) => memberRoleIds.includes(roleId));
+}
+
+function hasWhitelistedSubmitRole(memberRoleIds: readonly string[]) {
+  return ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS.some((roleId) => memberRoleIds.includes(roleId));
 }
 
 async function sendAutomodLog({

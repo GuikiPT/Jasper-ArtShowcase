@@ -4,9 +4,11 @@ import { RegisterSubCommand } from '@kaname-png/plugin-subcommands-advanced';
 import type { ArtShowcasePlugin } from '../artshowcase-plugin';
 import {
   ART_SHOWCASE_BLACKLIST_ROLE_IDS,
+  ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL,
   ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
   ART_SHOWCASE_REVIEWER_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
+  ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS,
   ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID,
   DESCRIPTION_FIELD_ID,
   DESCRIPTION_MAX_LENGTH,
@@ -67,6 +69,25 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
         components: buildStatusContainerComponents(
           'Submission Blocked',
           ['You are not allowed to submit artwork to Art Showcase.'],
+          'denied'
+        ),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
+      });
+      return;
+    }
+
+    if (interaction.inCachedGuild() && !hasWhitelistedSubmitRole(interaction.member.roles.cache.map((role) => role.id))) {
+      logArtShowcaseWarn(this.container.logger, 'submit.command.whitelist-blocked', {
+        minimumSubmitLevel: ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL,
+        whitelistRoleCount: ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS.length,
+        userId: interaction.user.id
+      });
+
+      await interaction.reply({
+        components: buildStatusContainerComponents(
+          'Submission Blocked',
+          [`You need at least the ${ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL} role to submit artwork to Art Showcase.`],
           'denied'
         ),
         flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
@@ -159,4 +180,8 @@ export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
 
 function hasBlacklistedRole(memberRoleIds: readonly string[]) {
   return ART_SHOWCASE_BLACKLIST_ROLE_IDS.some((roleId) => memberRoleIds.includes(roleId));
+}
+
+function hasWhitelistedSubmitRole(memberRoleIds: readonly string[]) {
+  return ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS.some((roleId) => memberRoleIds.includes(roleId));
 }

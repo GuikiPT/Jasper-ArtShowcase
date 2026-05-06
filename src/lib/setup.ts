@@ -31,6 +31,7 @@ declare module '@skyra/env-utilities' {
 		ART_SHOWCASE_BLACKLIST_ROLE_IDS: ArrayString | undefined;
 		ART_SHOWCASE_REVIEW_PING_ROLE_IDS: ArrayString | undefined;
 		ART_SHOWCASE_REVIEWER_ROLE_IDS: ArrayString | undefined;
+		ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS: ArrayString | undefined;
 		ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES: string | undefined;
 		ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID: string | undefined;
 		ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID: string | undefined;
