@@ -404,6 +404,38 @@ export function extractSubmissionDescriptionFromMessageComponents(components: re
   return description;
 }
 
+export function extractReviewStateFromMessageComponents(components: readonly unknown[]): ReviewStatus['state'] | null {
+  const reviewAction = extractReviewActionMetadataFromMessageComponents(components);
+  if (reviewAction) return 'pending';
+
+  let state: ReviewStatus['state'] | null = null;
+
+  const visit = (component: unknown) => {
+    if (!component || typeof component !== 'object' || state) return;
+
+    const candidate = component as {
+      components?: unknown[];
+      content?: string;
+    };
+
+    if (typeof candidate.content === 'string') {
+      const parsed = parseReviewStatusFromTextContent(candidate.content);
+      if (parsed) {
+        state = parsed;
+        return;
+      }
+    }
+
+    if (Array.isArray(candidate.components)) {
+      for (const child of candidate.components) visit(child);
+    }
+  };
+
+  for (const component of components) visit(component);
+
+  return state;
+}
+
 export function buildDiscussionThreadName(prefix: string, artistName: string, themeValue: string) {
   const theme = resolveThemeOption(themeValue);
   return `${prefix} - ${artistName} - ${theme?.label ?? themeValue}`.slice(0, 100);
@@ -468,6 +500,13 @@ function splitDenialReason(lines: string[]) {
 function parseDescriptionFromTextContent(content: string) {
   const match = content.match(/### Artist(?: Art)? Description\n```txt\n([\s\S]*?)\n```/);
   return match?.[1]?.trim() || null;
+}
+
+function parseReviewStatusFromTextContent(content: string): ReviewStatus['state'] | null {
+  const match = content.match(/### Review Status\n(?:> .*\n)*> .*\*\*Status\*\*: (Approved|Denied)/);
+  if (!match) return null;
+
+  return match[1] === 'Approved' ? 'approved' : 'denied';
 }
 
 function addDenialReasonSection(container: ContainerBuilder, denialReason: string) {

@@ -1,5 +1,4 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import automodRules from '../../../data/automod.json';
 
 type AutomodRule = {
   enabled?: boolean;
@@ -76,9 +75,7 @@ export function checkSubmissionDescriptionAgainstAutomod(
 function loadAutomodRules() {
   if (cachedRules) return cachedRules;
 
-  const filePath = join(process.cwd(), 'src', 'data', 'automod.json');
-  const fileContents = readFileSync(filePath, 'utf8');
-  cachedRules = JSON.parse(fileContents) as AutomodRule[];
+  cachedRules = automodRules as AutomodRule[];
 
   return cachedRules;
 }

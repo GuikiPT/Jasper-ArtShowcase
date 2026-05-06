@@ -14,6 +14,7 @@ import {
   buildStatusContainerComponents,
   buildSubmitterUpdateComponents,
   createReviewDenialModalCustomId,
+  extractReviewStateFromMessageComponents,
   extractSubmissionDescriptionFromMessageComponents,
   extractSubmissionImagesFromMessageComponents,
   formatDetailLine,
@@ -24,6 +25,7 @@ import {
 import {
   getErrorMessage,
   logArtShowcaseDebug,
+  logArtShowcaseError,
   logArtShowcaseInfo,
   logArtShowcaseWarn
 } from '../lib/logging';
@@ -40,6 +42,8 @@ import {
   type AnyThreadChannel,
   type SendableChannels
 } from 'discord.js';
+
+const activeReviewActions = new Set<string>();
 
 @ApplyOptions<Listener.Options>({ name: Events.InteractionCreate })
 export class UserEvent extends Listener {
@@ -87,6 +91,12 @@ export class UserEvent extends Listener {
     });
 
     if (!(await validateReviewer(this.container.logger, interaction, ART_SHOWCASE_REVIEWER_ROLE_IDS, reviewAction.action))) return;
+
+    const reviewState = extractReviewStateFromMessageComponents(interaction.message.components);
+    if (reviewState && reviewState !== 'pending') {
+      await replyWithStatus(interaction, 'Already Reviewed', [`This submission was already ${reviewState}.`], reviewState);
+      return;
+    }
 
     if (reviewAction.action === 'deny') {
       const modal = new ModalBuilder()
@@ -145,141 +155,184 @@ export class UserEvent extends Listener {
       submissionChannelId: submissionsChannel.id
     });
 
+    if (!beginReviewAction(interaction.message.id)) {
+      await replyWithStatus(interaction, 'Review In Progress', ['Another reviewer action is already processing for this submission.'], 'pending');
+      return;
+    }
+
     const reviewedAtTimestamp = Date.now();
 
-    await interaction.deferUpdate();
-    logArtShowcaseInfo(this.container.logger, 'review.approve.started', {
-      artistId: submission.artistId,
-      reviewerId: interaction.user.id,
-      themeValue: submission.themeValue,
-      threadId: interaction.channelId
-    });
+    let publishedMessage: Message | null = null;
+    let discussionThread: AnyThreadChannel | null = null;
 
-    const publishedMessage = await submissionsChannel.send({
-      components: buildPublishedMessageComponents(submission),
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: {
-        parse: [],
-        users: [submission.artistId]
-      }
-    });
+    try {
+      await interaction.deferUpdate();
+      logArtShowcaseInfo(this.container.logger, 'review.approve.started', {
+        artistId: submission.artistId,
+        reviewerId: interaction.user.id,
+        themeValue: submission.themeValue,
+        threadId: interaction.channelId
+      });
 
-    await publishedMessage.react('✅');
-    await publishedMessage.react('❌');
+      const createdPublishedMessage = await submissionsChannel.send({
+        components: buildPublishedMessageComponents(submission),
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: {
+          parse: [],
+          users: [submission.artistId]
+        }
+      });
+      publishedMessage = createdPublishedMessage;
 
-    logArtShowcaseDebug(this.container.logger, 'review.approve.public-reactions-added', {
-      publishedMessageId: publishedMessage.id,
-      reviewerId: interaction.user.id
-    });
+      await createdPublishedMessage.react('✅');
+      await createdPublishedMessage.react('❌');
 
-    logArtShowcaseInfo(this.container.logger, 'review.approve.published', {
-      artistId: submission.artistId,
-      publishedMessageId: publishedMessage.id,
-      reviewerId: interaction.user.id,
-      submissionChannelId: ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID,
-      themeValue: submission.themeValue
-    });
-
-    const discussionThread = await publishedMessage.startThread({
-      name: buildDiscussionThreadName('Art Discussion', submission.artistName, submission.themeValue),
-      autoArchiveDuration: ThreadAutoArchiveDuration.OneDay
-    });
-
-    logArtShowcaseInfo(this.container.logger, 'review.approve.discussion-thread.created', {
-      discussionThreadId: discussionThread.id,
-      publishedMessageId: publishedMessage.id,
-      reviewerId: interaction.user.id
-    });
-
-    await interaction.message.edit({
-      components: buildReviewMessageComponents(submission, {
-        state: 'approved',
-        reviewedAtTimestamp,
-        reviewerId: interaction.user.id
-      }),
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: { parse: [] }
-    });
-
-    logArtShowcaseInfo(this.container.logger, 'review.approve.review-message.updated', {
-      reviewMessageId: interaction.message.id,
-      reviewerId: interaction.user.id,
-      status: 'approved'
-    });
-
-    const reviewThread = fetchReviewThread(interaction.message);
-    if (reviewThread) {
-      await reviewThread.setName(buildReviewThreadName('approved', submission.artistName, submission.themeValue));
-      logArtShowcaseDebug(this.container.logger, 'review.approve.thread-renamed', {
-        reviewThreadId: reviewThread.id,
+      logArtShowcaseDebug(this.container.logger, 'review.approve.public-reactions-added', {
+        publishedMessageId: createdPublishedMessage.id,
         reviewerId: interaction.user.id
       });
 
-      await reviewThread.send({
-        components: buildStatusContainerComponents(
-          'Submission Approved',
-          [
-            'The submission was approved.',
-            formatDetailLine('Reviewed by', `<@${interaction.user.id}>`),
-            formatDetailLine('Approved at', `<t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>`),
-            formatDetailLine('Published to', `<#${ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID}>`)
-          ],
-          'approved'
-        ),
+      logArtShowcaseInfo(this.container.logger, 'review.approve.published', {
+        artistId: submission.artistId,
+        publishedMessageId: createdPublishedMessage.id,
+        reviewerId: interaction.user.id,
+        submissionChannelId: ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID,
+        themeValue: submission.themeValue
+      });
+
+      discussionThread = await createdPublishedMessage.startThread({
+        name: buildDiscussionThreadName('Art Discussion', submission.artistName, submission.themeValue),
+        autoArchiveDuration: ThreadAutoArchiveDuration.OneDay
+      });
+
+      logArtShowcaseInfo(this.container.logger, 'review.approve.discussion-thread.created', {
+        discussionThreadId: discussionThread.id,
+        publishedMessageId: createdPublishedMessage.id,
+        reviewerId: interaction.user.id
+      });
+
+      await interaction.message.edit({
+        components: buildReviewMessageComponents(submission, {
+          state: 'approved',
+          reviewedAtTimestamp,
+          reviewerId: interaction.user.id
+        }),
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { parse: [] }
       });
 
-      logArtShowcaseDebug(this.container.logger, 'review.approve.thread-status-sent', {
-        reviewThreadId: reviewThread.id,
-        reviewerId: interaction.user.id
+      logArtShowcaseInfo(this.container.logger, 'review.approve.review-message.updated', {
+        reviewMessageId: interaction.message.id,
+        reviewerId: interaction.user.id,
+        status: 'approved'
       });
 
-      await reviewThread.setLocked(true, 'Art Showcase submission reviewed');
-      logArtShowcaseDebug(this.container.logger, 'review.approve.thread-locked', {
-        reviewThreadId: reviewThread.id,
-        reviewerId: interaction.user.id
+      const reviewThread = fetchReviewThread(interaction.message);
+      if (reviewThread) {
+        await reviewThread.setName(buildReviewThreadName('approved', submission.artistName, submission.themeValue));
+        logArtShowcaseDebug(this.container.logger, 'review.approve.thread-renamed', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+
+        await reviewThread.send({
+          components: buildStatusContainerComponents(
+            'Submission Approved',
+            [
+              'The submission was approved.',
+              formatDetailLine('Reviewed by', `<@${interaction.user.id}>`),
+              formatDetailLine('Approved at', `<t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>`),
+              formatDetailLine('Published to', `<#${ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID}>`)
+            ],
+            'approved'
+          ),
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] }
+        });
+
+        logArtShowcaseDebug(this.container.logger, 'review.approve.thread-status-sent', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+
+        await reviewThread.setLocked(true, 'Art Showcase submission reviewed');
+        logArtShowcaseDebug(this.container.logger, 'review.approve.thread-locked', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+
+        await reviewThread.setArchived(true, 'Art Showcase submission reviewed');
+        logArtShowcaseDebug(this.container.logger, 'review.approve.thread-archived', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+
+        logArtShowcaseInfo(this.container.logger, 'review.approve.thread-closed', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+      }
+
+      await notifyMember(this.container.logger, submission, this.container.client, [
+        'Your Art Showcase submission was approved.',
+        formatDetailLine('Theme', resolveThemeLabel(submission.themeValue)),
+        formatDetailLine('Approved at', `<t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>`),
+        formatDetailLine('Published to', `<#${ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID}>`)
+      ], 'approved', interaction.user.id);
+
+      logArtShowcaseInfo(this.container.logger, 'review.approve.completed', {
+        artistId: submission.artistId,
+        reviewerId: interaction.user.id,
+        themeValue: submission.themeValue
       });
 
-      await reviewThread.setArchived(true, 'Art Showcase submission reviewed');
-      logArtShowcaseDebug(this.container.logger, 'review.approve.thread-archived', {
-        reviewThreadId: reviewThread.id,
-        reviewerId: interaction.user.id
+      await interaction.followUp({
+        components: buildStatusContainerComponents(
+          'Submission Approved',
+          [`Submission approved and posted to <#${ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID}>.`],
+          'approved'
+        ),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
       });
 
-      logArtShowcaseInfo(this.container.logger, 'review.approve.thread-closed', {
-        reviewThreadId: reviewThread.id,
-        reviewerId: interaction.user.id
+      logArtShowcaseDebug(this.container.logger, 'review.approve.follow-up.sent', {
+        reviewerId: interaction.user.id,
+        reviewMessageId: interaction.message.id
       });
+    } catch (error) {
+      logArtShowcaseError(this.container.logger, 'review.approve.failed', error, {
+        artistId: submission.artistId,
+        publishedMessageId: publishedMessage?.id,
+        reviewerId: interaction.user.id,
+        reviewMessageId: interaction.message.id,
+        themeValue: submission.themeValue
+      });
+
+      if (discussionThread) {
+        await discussionThread.delete('Rolling back failed Art Showcase approval').catch(() => null);
+      }
+
+      if (publishedMessage) {
+        await publishedMessage.delete().catch(() => null);
+        logArtShowcaseWarn(this.container.logger, 'review.approve.rollback.deleted-public-message', {
+          publishedMessageId: publishedMessage.id,
+          reviewerId: interaction.user.id
+        });
+      }
+
+      await interaction.followUp({
+        components: buildStatusContainerComponents(
+          'Approval Failed',
+          ['The submission could not be approved. No public post was kept, so it is safe to retry.'],
+          'denied'
+        ),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
+      }).catch(() => null);
+    } finally {
+      endReviewAction(interaction.message.id);
     }
-
-    await notifyMember(this.container.logger, submission, this.container.client, [
-      'Your Art Showcase submission was approved.',
-      formatDetailLine('Theme', resolveThemeLabel(submission.themeValue)),
-      formatDetailLine('Approved at', `<t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>`),
-      formatDetailLine('Published to', `<#${ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID}>`)
-    ], 'approved', interaction.user.id);
-
-    logArtShowcaseInfo(this.container.logger, 'review.approve.completed', {
-      artistId: submission.artistId,
-      reviewerId: interaction.user.id,
-      themeValue: submission.themeValue
-    });
-
-    await interaction.followUp({
-      components: buildStatusContainerComponents(
-        'Submission Approved',
-        [`Submission approved and posted to <#${ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID}>.`],
-        'approved'
-      ),
-      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
-      allowedMentions: { parse: [] }
-    });
-
-    logArtShowcaseDebug(this.container.logger, 'review.approve.follow-up.sent', {
-      reviewerId: interaction.user.id,
-      reviewMessageId: interaction.message.id
-    });
   }
 
   private async handleDenialModal(interaction: ModalSubmitInteraction<'cached'>) {
@@ -300,120 +353,135 @@ export class UserEvent extends Listener {
       return;
     }
 
-    const submission = await getSubmissionFromMessage(
-      this.container.client,
-      interaction.message,
-      denialModal.artistId,
-      denialModal.themeValue
-    );
-    if (!submission) {
-      await replyWithStatus(interaction, 'Submission Missing', ['The submission data could not be recovered from the review message.'], 'denied');
+    const reviewState = extractReviewStateFromMessageComponents(interaction.message.components);
+    if (reviewState && reviewState !== 'pending') {
+      await replyWithStatus(interaction, 'Already Reviewed', [`This submission was already ${reviewState}.`], reviewState);
       return;
     }
 
-    logArtShowcaseDebug(this.container.logger, 'review.deny.submission-recovered', {
-      artistId: submission.artistId,
-      imageCount: submission.images.length,
-      reviewerId: interaction.user.id,
-      themeValue: submission.themeValue
-    });
+    if (!beginReviewAction(interaction.message.id)) {
+      await replyWithStatus(interaction, 'Review In Progress', ['Another reviewer action is already processing for this submission.'], 'pending');
+      return;
+    }
 
-    const reviewedAtTimestamp = Date.now();
-    const denialReason = interaction.fields.getTextInputValue(REVIEW_DENIAL_REASON_FIELD_ID).trim();
-    const normalizedDenialReason = denialReason || 'No denial reason provided.';
+    try {
+      const submission = await getSubmissionFromMessage(
+        this.container.client,
+        interaction.message,
+        denialModal.artistId,
+        denialModal.themeValue
+      );
+      if (!submission) {
+        await replyWithStatus(interaction, 'Submission Missing', ['The submission data could not be recovered from the review message.'], 'denied');
+        return;
+      }
 
-    logArtShowcaseDebug(this.container.logger, 'review.deny.reason-captured', {
-      artistId: submission.artistId,
-      reasonLength: denialReason.length,
-      reviewerId: interaction.user.id
-    });
-
-    await interaction.update({
-      components: buildReviewMessageComponents(submission, {
-        state: 'denied',
-        reviewedAtTimestamp,
+      logArtShowcaseDebug(this.container.logger, 'review.deny.submission-recovered', {
+        artistId: submission.artistId,
+        imageCount: submission.images.length,
         reviewerId: interaction.user.id,
-        denialReason: normalizedDenialReason
-      }),
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: { parse: [] }
-    });
+        themeValue: submission.themeValue
+      });
 
-    logArtShowcaseInfo(this.container.logger, 'review.deny.review-message.updated', {
-      reviewMessageId: interaction.message.id,
-      reviewerId: interaction.user.id,
-      status: 'denied'
-    });
+      const reviewedAtTimestamp = Date.now();
+      const denialReason = interaction.fields.getTextInputValue(REVIEW_DENIAL_REASON_FIELD_ID).trim();
+      const normalizedDenialReason = denialReason || 'No denial reason provided.';
 
-    const reviewThread = fetchReviewThread(interaction.message);
-    if (reviewThread) {
-      await reviewThread.setName(buildReviewThreadName('denied', submission.artistName, submission.themeValue));
-      logArtShowcaseDebug(this.container.logger, 'review.deny.thread-renamed', {
-        reviewThreadId: reviewThread.id,
+      logArtShowcaseDebug(this.container.logger, 'review.deny.reason-captured', {
+        artistId: submission.artistId,
+        reasonLength: denialReason.length,
         reviewerId: interaction.user.id
       });
 
-      await reviewThread.send({
-        components: buildStatusContainerComponents(
-          'Submission Denied',
-          [
-            'The submission was denied.',
-            formatDetailLine('Reviewed by', `<@${interaction.user.id}>`),
-            formatDetailLine('Denied at', `<t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>`),
-            formatDetailLine('Reason', normalizedDenialReason)
-          ],
-          'denied'
-        ),
+      await interaction.update({
+        components: buildReviewMessageComponents(submission, {
+          state: 'denied',
+          reviewedAtTimestamp,
+          reviewerId: interaction.user.id,
+          denialReason: normalizedDenialReason
+        }),
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { parse: [] }
       });
 
-      logArtShowcaseDebug(this.container.logger, 'review.deny.thread-status-sent', {
-        reviewThreadId: reviewThread.id,
-        reviewerId: interaction.user.id
+      logArtShowcaseInfo(this.container.logger, 'review.deny.review-message.updated', {
+        reviewMessageId: interaction.message.id,
+        reviewerId: interaction.user.id,
+        status: 'denied'
       });
 
-      await reviewThread.setLocked(true, 'Art Showcase submission reviewed');
-      logArtShowcaseDebug(this.container.logger, 'review.deny.thread-locked', {
-        reviewThreadId: reviewThread.id,
-        reviewerId: interaction.user.id
+      const reviewThread = fetchReviewThread(interaction.message);
+      if (reviewThread) {
+        await reviewThread.setName(buildReviewThreadName('denied', submission.artistName, submission.themeValue));
+        logArtShowcaseDebug(this.container.logger, 'review.deny.thread-renamed', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+
+        await reviewThread.send({
+          components: buildStatusContainerComponents(
+            'Submission Denied',
+            [
+              'The submission was denied.',
+              formatDetailLine('Reviewed by', `<@${interaction.user.id}>`),
+              formatDetailLine('Denied at', `<t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>`),
+              formatDetailLine('Reason', normalizedDenialReason)
+            ],
+            'denied'
+          ),
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] }
+        });
+
+        logArtShowcaseDebug(this.container.logger, 'review.deny.thread-status-sent', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+
+        await reviewThread.setLocked(true, 'Art Showcase submission reviewed');
+        logArtShowcaseDebug(this.container.logger, 'review.deny.thread-locked', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+
+        await reviewThread.setArchived(true, 'Art Showcase submission reviewed');
+        logArtShowcaseDebug(this.container.logger, 'review.deny.thread-archived', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+
+        logArtShowcaseInfo(this.container.logger, 'review.deny.thread-closed', {
+          reviewThreadId: reviewThread.id,
+          reviewerId: interaction.user.id
+        });
+      }
+
+      await notifyMember(this.container.logger, submission, this.container.client, [
+        'Your Art Showcase submission was denied.',
+        formatDetailLine('Theme', resolveThemeLabel(submission.themeValue)),
+        formatDetailLine('Denied at', `<t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>`),
+        formatDetailLine('Reason', normalizedDenialReason)
+      ], 'denied', interaction.user.id);
+
+      logArtShowcaseInfo(this.container.logger, 'review.deny.completed', {
+        artistId: submission.artistId,
+        denialReasonProvided: denialReason.length > 0,
+        reviewerId: interaction.user.id,
+        themeValue: submission.themeValue
       });
 
-      await reviewThread.setArchived(true, 'Art Showcase submission reviewed');
-      logArtShowcaseDebug(this.container.logger, 'review.deny.thread-archived', {
-        reviewThreadId: reviewThread.id,
-        reviewerId: interaction.user.id
+      await interaction.followUp({
+        components: buildStatusContainerComponents('Submission Denied', ['Submission denied.'], 'denied'),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
       });
 
-      logArtShowcaseInfo(this.container.logger, 'review.deny.thread-closed', {
-        reviewThreadId: reviewThread.id,
-        reviewerId: interaction.user.id
+      logArtShowcaseDebug(this.container.logger, 'review.deny.follow-up.sent', {
+        reviewerId: interaction.user.id,
+        reviewMessageId: interaction.message.id
       });
+    } finally {
+      endReviewAction(interaction.message.id);
     }
-
-    await notifyMember(this.container.logger, submission, this.container.client, [
-      'Your Art Showcase submission was denied.',
-      formatDetailLine('Theme', resolveThemeLabel(submission.themeValue)),
-      formatDetailLine('Denied at', `<t:${Math.floor(reviewedAtTimestamp / 1_000)}:F>`),
-      formatDetailLine('Reason', normalizedDenialReason)
-    ], 'denied', interaction.user.id);
-
-    logArtShowcaseInfo(this.container.logger, 'review.deny.completed', {
-      artistId: submission.artistId,
-      denialReasonProvided: denialReason.length > 0,
-      reviewerId: interaction.user.id,
-      themeValue: submission.themeValue
-    });
-
-    await interaction.followUp({
-      components: buildStatusContainerComponents('Submission Denied', ['Submission denied.'], 'denied'),
-      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
-    });
-
-    logArtShowcaseDebug(this.container.logger, 'review.deny.follow-up.sent', {
-      reviewerId: interaction.user.id,
-      reviewMessageId: interaction.message.id
-    });
   }
 }
 
@@ -504,6 +572,17 @@ async function notifyMember(
 
 function fetchReviewThread(sourceMessage: Message) {
   return (sourceMessage.thread ?? null) as AnyThreadChannel | null;
+}
+
+function beginReviewAction(reviewMessageId: string) {
+  if (activeReviewActions.has(reviewMessageId)) return false;
+
+  activeReviewActions.add(reviewMessageId);
+  return true;
+}
+
+function endReviewAction(reviewMessageId: string) {
+  activeReviewActions.delete(reviewMessageId);
 }
 
 function resolveThemeLabel(themeValue: string) {
