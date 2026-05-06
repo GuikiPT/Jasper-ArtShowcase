@@ -31,7 +31,7 @@ import { FileUploadBuilder, LabelBuilder, MessageFlags, ModalBuilder, StringSele
   name: 'art-showcase-submit',
   description: 'Open the art submission modal.',
   module: 'ArtShowcasePlugin',
-  preconditions: ['ModuleEnabled']
+  preconditions: ['ModuleEnabled'],
 })
 export class ArtShowcaseSubmitCommand extends ModuleCommand<ArtShowcasePlugin> {
   public override async chatInputRun(interaction: ModuleCommand.ChatInputCommandInteraction) {

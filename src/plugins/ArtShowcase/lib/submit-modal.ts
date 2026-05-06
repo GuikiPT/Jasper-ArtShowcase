@@ -25,6 +25,7 @@ import {
   formatDetailLine,
   type SubmissionDisplayData
 } from './submission-components';
+import { createArtistIdentity } from './artist-identity';
 import {
   getErrorMessage,
   logArtShowcaseDebug,
@@ -253,10 +254,10 @@ export async function handleArtShowcaseSubmitModal({
       userId: interaction.user.id
     });
 
+    const artistIdentity = createArtistIdentity(interaction.user, interaction.member);
+
     const submissionData: SubmissionDisplayData = {
-      artistId: interaction.user.id,
-      artistName: interaction.user.username,
-      artistAvatarUrl: interaction.user.displayAvatarURL({ extension: 'png' }),
+      ...artistIdentity,
       themeValue: selectedTheme.value,
       description,
       images: uploadedFiles.map((file) => ({ name: file.name, url: file.url })),
@@ -453,9 +454,7 @@ async function sendAutomodLog({
   if (!automodLogChannel) return;
 
   const blockedSubmission: SubmissionDisplayData = {
-    artistId: interaction.user.id,
-    artistName: interaction.user.username,
-    artistAvatarUrl: interaction.user.displayAvatarURL({ extension: 'png' }),
+    ...createArtistIdentity(interaction.user, interaction.member),
     themeValue: selectedThemeValue,
     description,
     images,

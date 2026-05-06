@@ -28,6 +28,7 @@ import {
   logArtShowcaseInfo,
   logArtShowcaseWarn
 } from '../lib/logging';
+import { fetchArtistIdentity } from '../lib/artist-identity';
 import {
   ContainerBuilder,
   MediaGalleryBuilder,
@@ -253,12 +254,15 @@ async function getSubmissionFromReviewMessage(
   if (!reviewAction || !description || images.length === 0) return null;
 
   const artist = await client.users.fetch(reviewAction.artistId).catch(() => null);
+  const artistIdentity = await fetchArtistIdentity(reviewMessage.guild, reviewAction.artistId);
   const theme = resolveThemeOption(reviewAction.themeValue);
 
   return {
     artistId: reviewAction.artistId,
-    artistName: artist?.username ?? reviewAction.artistId,
-    artistAvatarUrl: artist?.displayAvatarURL({ extension: 'png' }) ?? null,
+    artistName: artistIdentity?.artistName ?? artist?.globalName ?? artist?.username ?? reviewAction.artistId,
+    artistUsername: artistIdentity?.artistUsername ?? artist?.username ?? reviewAction.artistId,
+    artistServerName: artistIdentity?.artistServerName ?? artist?.globalName ?? artist?.username ?? reviewAction.artistId,
+    artistAvatarUrl: artistIdentity?.artistAvatarUrl ?? artist?.displayAvatarURL({ extension: 'png' }) ?? null,
     themeValue: theme?.value ?? reviewAction.themeValue,
     description,
     images,

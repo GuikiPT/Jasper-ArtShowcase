@@ -29,6 +29,7 @@ import {
   logArtShowcaseInfo,
   logArtShowcaseWarn
 } from '../lib/logging';
+import { fetchArtistIdentity } from '../lib/artist-identity';
 import {
   ButtonInteraction,
   LabelBuilder,
@@ -497,11 +498,14 @@ async function getSubmissionFromMessage(
   if (!description) return null;
 
   const artist = await client.users.fetch(artistId).catch(() => null);
+  const artistIdentity = await fetchArtistIdentity(sourceMessage.guild, artistId);
 
   return {
     artistId,
-    artistName: artist?.username ?? artistId,
-    artistAvatarUrl: artist?.displayAvatarURL({ extension: 'png' }) ?? null,
+    artistName: artistIdentity?.artistName ?? artist?.globalName ?? artist?.username ?? artistId,
+    artistUsername: artistIdentity?.artistUsername ?? artist?.username ?? artistId,
+    artistServerName: artistIdentity?.artistServerName ?? artist?.globalName ?? artist?.username ?? artistId,
+    artistAvatarUrl: artistIdentity?.artistAvatarUrl ?? artist?.displayAvatarURL({ extension: 'png' }) ?? null,
     themeValue,
     description,
     images,

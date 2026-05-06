@@ -31,6 +31,8 @@ export interface SubmissionImage {
 export interface SubmissionDisplayData {
   artistId: string;
   artistName: string;
+  artistUsername: string;
+  artistServerName: string;
   artistAvatarUrl: string | null;
   themeValue: string;
   description: string;
@@ -199,7 +201,10 @@ export function buildReviewMessageComponents(submission: SubmissionDisplayData, 
           new TextDisplayBuilder().setContent(
             [
               '## Art Showcase Staff Review',
-              formatPlainDetailLine('Artist', `<@${submission.artistId}>`),
+              formatPlainDetailLine('Artist Mention', `<@${submission.artistId}>`),
+              formatPlainDetailLine('Artist ID', submission.artistId),
+              formatPlainDetailLine('Artist Username', submission.artistUsername),
+              formatPlainDetailLine('Artist Server Name', submission.artistServerName),
               formatPlainDetailLine('Theme', theme?.label ?? submission.themeValue)
             ].join('\n')
           )
@@ -256,7 +261,10 @@ export function buildPublishedMessageComponents(submission: SubmissionDisplayDat
             new TextDisplayBuilder().setContent(
               [
                 '## Art Showcase',
-                formatDetailLine('Artist', `<@${submission.artistId}>`),
+                formatDetailLine('Artist Mention', `<@${submission.artistId}>`),
+                formatDetailLine('Artist ID', submission.artistId),
+                formatDetailLine('Artist Username', submission.artistUsername),
+                formatDetailLine('Artist Server Name', submission.artistServerName),
                 formatDetailLine('Theme', theme?.label ?? submission.themeValue)
               ].join('\n')
             )
@@ -294,9 +302,10 @@ export function buildBlockedSubmissionLogComponents(
             new TextDisplayBuilder().setContent(
               [
                 '## Art Showcase Submission Blocked',
-                formatPlainDetailLine('Artist', `<@${submission.artistId}>`),
-                formatPlainDetailLine('Username', submission.artistName),
-                formatPlainDetailLine('User ID', submission.artistId),
+                formatPlainDetailLine('Artist Mention', `<@${submission.artistId}>`),
+                formatPlainDetailLine('Artist ID', submission.artistId),
+                formatPlainDetailLine('Artist Username', submission.artistUsername),
+                formatPlainDetailLine('Artist Server Name', submission.artistServerName),
                 formatPlainDetailLine('Theme', theme?.label ?? submission.themeValue),
                 ...(details.sourceChannelId ? [formatPlainDetailLine('Channel', `<#${details.sourceChannelId}>`)] : [])
               ].join('\n')
@@ -455,9 +464,10 @@ function buildMediaGallery(images: SubmissionImage[]) {
 function buildOverviewText(submission: SubmissionDisplayData, themeLabel: string) {
   const lines = [
     '### Submission Overview',
-    formatDetailLine('Artist', `<@${submission.artistId}>`),
-    formatDetailLine('Username', submission.artistName),
-    formatDetailLine('User ID', submission.artistId),
+    formatDetailLine('Artist Mention', `<@${submission.artistId}>`),
+    formatDetailLine('Artist ID', submission.artistId),
+    formatDetailLine('Artist Username', submission.artistUsername),
+    formatDetailLine('Artist Server Name', submission.artistServerName),
     formatDetailLine('Theme', themeLabel),
     formatDetailLine('Images', submission.images.length)
   ];
