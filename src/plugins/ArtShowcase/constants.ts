@@ -61,7 +61,9 @@ export const ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS: readonly string[] = envStri
   '948570932434333706', // Level 100
   '948567048705937470', // Level 125
   '1141526909004558378', // Level 150
-  '1141527275389603910' // Please Touch Grass
+  '1141527275389603910', // Please Touch Grass
+  '1500991488434114560' // Testing Role from Fore 
+  //TODO: ^^ Remove this once we production
 ]);
 export const ART_SHOWCASE_REVIEWER_ROLE_IDS: readonly string[] = envStringArray('ART_SHOWCASE_REVIEWER_ROLE_IDS', [
   '1221608852676677732', // Server Manager
