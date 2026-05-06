@@ -83,13 +83,19 @@ function loadAutomodRules() {
 function matchesKeywordPattern(content: string, pattern: string) {
   if (!pattern) return false;
 
-  const wildcardPattern = pattern
-    .split('*')
-    .map((segment) => escapeRegex(segment))
-    .join('.*');
+  const hasWildcard = pattern.includes('*');
+  const normalizedPattern = pattern.trim();
+  if (!normalizedPattern) return false;
+
+  const regexPattern = hasWildcard
+    ? normalizedPattern
+      .split('*')
+      .map((segment) => escapeRegex(segment))
+      .join('.*')
+    : createWholeWordPattern(normalizedPattern);
 
   try {
-    return new RegExp(wildcardPattern, 'iu').test(content);
+    return new RegExp(regexPattern, 'iu').test(content);
   } catch {
     return false;
   }
@@ -107,4 +113,9 @@ function matchesRegexPattern(content: string, pattern: string) {
 
 function escapeRegex(value: string) {
   return value.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+}
+
+function createWholeWordPattern(pattern: string) {
+  const escapedPattern = escapeRegex(pattern);
+  return `(?<![\\p{L}\\p{N}_])${escapedPattern}(?![\\p{L}\\p{N}_])`;
 }
