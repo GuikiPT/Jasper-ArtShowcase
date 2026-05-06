@@ -1,7 +1,7 @@
 import {
   ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID,
+  ART_SHOWCASE_REVIEW_PING_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
-  ART_SHOWCASE_REVIEWER_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
   DESCRIPTION_FIELD_ID,
   DESCRIPTION_MAX_LENGTH,
@@ -267,11 +267,11 @@ export async function handleArtShowcaseSubmitModal({
       userId: interaction.user.id
     });
 
-    const reviewerMentions = ART_SHOWCASE_REVIEWER_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(' ');
+    const reviewerMentions = ART_SHOWCASE_REVIEW_PING_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(' ');
     if (reviewerMentions) {
       logArtShowcaseDebug(logger, 'submit.review-thread.ping-started', {
         reviewThreadId: reviewThread.id,
-        roleCount: ART_SHOWCASE_REVIEWER_ROLE_IDS.length,
+        roleCount: ART_SHOWCASE_REVIEW_PING_ROLE_IDS.length,
         userId: interaction.user.id
       });
 
@@ -279,13 +279,13 @@ export async function handleArtShowcaseSubmitModal({
         content: reviewerMentions,
         allowedMentions: {
           parse: [],
-          roles: ART_SHOWCASE_REVIEWER_ROLE_IDS
+          roles: ART_SHOWCASE_REVIEW_PING_ROLE_IDS
         }
       });
 
       logArtShowcaseDebug(logger, 'submit.review-thread.ping-sent', {
         reviewThreadId: reviewThread.id,
-        roleCount: ART_SHOWCASE_REVIEWER_ROLE_IDS.length,
+        roleCount: ART_SHOWCASE_REVIEW_PING_ROLE_IDS.length,
         userId: interaction.user.id
       });
     }

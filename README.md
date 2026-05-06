@@ -15,6 +15,7 @@ Create `src/.env` with the bot token and any optional overrides used by this pro
 These environment variables are supported:
 
 - `ART_SHOWCASE_REVIEWER_ROLE_IDS`: comma-separated reviewer role IDs.
+- `ART_SHOWCASE_REVIEW_PING_ROLE_IDS`: comma-separated role IDs to ping on new submissions. Defaults to the Art Reviewer role.
 - `ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID`: channel for blocked submission logs.
 - `ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID`: private staff review channel.
 - `ART_SHOWCASE_SUBMISSIONS_CHANNEL_ID`: public showcase channel.
