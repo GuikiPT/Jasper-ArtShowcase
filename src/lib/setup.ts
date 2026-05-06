@@ -29,6 +29,7 @@ declare module '@skyra/env-utilities' {
 	interface Env {
 		ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID: string | undefined;
 		ART_SHOWCASE_BLACKLIST_ROLE_IDS: ArrayString | undefined;
+		ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_ID: string | undefined;
 		ART_SHOWCASE_REVIEW_PING_ROLE_IDS: ArrayString | undefined;
 		ART_SHOWCASE_REVIEWER_ROLE_IDS: ArrayString | undefined;
 		ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS: ArrayString | undefined;

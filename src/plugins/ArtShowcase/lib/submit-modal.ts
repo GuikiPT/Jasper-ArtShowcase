@@ -1,7 +1,8 @@
 import {
   ART_SHOWCASE_AUTOMOD_LOG_CHANNEL_ID,
   ART_SHOWCASE_BLACKLIST_ROLE_IDS,
-  ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL,
+  ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_ID,
+  ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_MENTION,
   ART_SHOWCASE_REVIEW_PING_ROLE_IDS,
   ART_SHOWCASE_SUBMISSION_COOLDOWN_MINUTES,
   ART_SHOWCASE_SUBMISSION_LOG_CHANNEL_ID,
@@ -88,7 +89,7 @@ export async function handleArtShowcaseSubmitModal({
 
   if (!hasWhitelistedSubmitRole(interaction.member.roles.cache.map((role) => role.id))) {
     logArtShowcaseWarn(logger, 'submit.modal.whitelist-blocked', {
-      minimumSubmitLevel: ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL,
+      minimumSubmitRoleId: ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_ID,
       whitelistRoleCount: ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS.length,
       userId: interaction.user.id
     });
@@ -96,7 +97,7 @@ export async function handleArtShowcaseSubmitModal({
     await interaction.reply({
       components: buildStatusContainerComponents(
         'Submission Blocked',
-        [`You need at least the ${ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL} role to submit artwork to Art Showcase.`],
+        [`You need at least the ${ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_MENTION} role to submit artwork to Art Showcase.`],
         'denied'
       ),
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,

@@ -48,7 +48,8 @@ export const ART_SHOWCASE_DETAIL_DOT = '<:test_jasper_dot:1486080288755945614>';
 export const REVIEW_ACTION_CUSTOM_ID_PREFIX = 'art-showcase:review';
 export const REVIEW_DENIAL_MODAL_CUSTOM_ID_PREFIX = 'art-showcase:deny-modal';
 export const REVIEW_DENIAL_REASON_FIELD_ID = 'art-showcase:deny-reason';
-export const ART_SHOWCASE_MINIMUM_SUBMIT_LEVEL_LABEL = 'Level 10';
+export const ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_ID = envString('ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_ID', '948566896029106186');
+export const ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_MENTION = `<@&${ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_ID}>`;
 
 export const ART_SHOWCASE_BLACKLIST_ROLE_IDS: readonly string[] = envStringArray('ART_SHOWCASE_BLACKLIST_ROLE_IDS', [
   '1191884366549352458' // Art Blacklist

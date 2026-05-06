@@ -15,6 +15,7 @@ Create `src/.env` with the bot token and any optional overrides used by this pro
 These environment variables are supported:
 
 - `ART_SHOWCASE_BLACKLIST_ROLE_IDS`: comma-separated role IDs that cannot submit to Art Showcase. Defaults to the Art Blacklist role.
+- `ART_SHOWCASE_MINIMUM_SUBMIT_ROLE_ID`: role ID mentioned in the minimum-level submission blocked message. Defaults to the Level 10 role.
 - `ART_SHOWCASE_SUBMIT_WHITELIST_ROLE_IDS`: comma-separated role IDs allowed to submit to Art Showcase. Defaults to Level 10 and above, excluding Level 5.
 - `ART_SHOWCASE_REVIEWER_ROLE_IDS`: comma-separated reviewer role IDs.
 - `ART_SHOWCASE_REVIEW_PING_ROLE_IDS`: comma-separated role IDs to ping on new submissions. Defaults to the Art Reviewer role.
