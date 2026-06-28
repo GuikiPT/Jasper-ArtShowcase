@@ -79,8 +79,8 @@ importers:
         specifier: ^8.0.4
         version: 8.0.4
       prettier:
-        specifier: ^3.8.3
-        version: 3.8.3
+        specifier: ^3.9.1
+        version: 3.9.1
       tsc-watch:
         specifier: ^7.2.0
         version: 7.2.0(typescript@6.0.3)
@@ -439,8 +439,8 @@ packages:
     engines: {node: '>=0.10'}
     hasBin: true
 
-  prettier@3.8.3:
-    resolution: {integrity: sha512-7igPTM53cGHMW8xWuVTydi2KO233VFiTNyF5hLJqpilHfmn8C8gPf+PS7dUT64YcXFbiMGZxS9pCSxL/Dxm/Jw==}
+  prettier@3.9.1:
+    resolution: {integrity: sha512-ppiDo2CSwexck1eyZUwJHg/N3nf1+6IRCv7W/VJ5vaLnVCmB7+3CdRfMwoCHBBX6xTrREDTksZ4OZl5SSf4zXA==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -717,7 +717,7 @@ snapshots:
 
   '@sapphire/prettier-config@2.0.0':
     dependencies:
-      prettier: 3.8.3
+      prettier: 3.9.1
 
   '@sapphire/ratelimits@2.4.11': {}
 
@@ -930,7 +930,7 @@ snapshots:
 
   pidtree@0.6.0: {}
 
-  prettier@3.8.3: {}
+  prettier@3.9.1: {}
 
   prompts@2.4.2:
     dependencies:
