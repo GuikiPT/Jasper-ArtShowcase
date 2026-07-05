@@ -31,7 +31,7 @@
     "@types/ws": "^8.18.1",
     "npm-run-all2": "^8.0.4",
     "prettier": "^3.8.3",
-    "tsc-watch": "^7.2.0",
+    "tsc-watch": "^7.2.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
